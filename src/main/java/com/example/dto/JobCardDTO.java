@@ -17,11 +17,6 @@ public class JobCardDTO {
     public String getJobid() {
         return jobid;
     }
-
-    public void setJobid(String jobid) {
-        this.jobid = jobid;
-    }
-
     public String getAssignTo() {
         return assignTo;
     }
@@ -29,40 +24,18 @@ public class JobCardDTO {
     public String getGeneratorid() {
         return generatorid;
     }
-
-    public void setGeneratorid(String generatorid) {
-        this.generatorid = generatorid;
-    }
-
     public String getTitle() {
         return title;
     }
-
-    public void setTitle(String title) {
-        this.title = title;
-    }
-
     public String getDescription() {
         return description;
-    }
-
-    public void setDescription(String description) {
-        this.description = description;
     }
 
     public Integer getHoursnumber() {
         return hoursnumber;
     }
-
-    public void setHoursnumber(Integer hoursnumber) {
-        this.hoursnumber = hoursnumber;
-    }
-
     public String getWorkstatus() {
         return workstatus;
     }
 
-    public void setWorkstatus(String workstatus) {
-        this.workstatus = workstatus;
-    }
 }
