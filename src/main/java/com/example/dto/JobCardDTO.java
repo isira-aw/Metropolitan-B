@@ -18,10 +18,6 @@ public class JobCardDTO {
         return jobid;
     }
 
-    public void setJobid(String jobid) {
-        this.jobid = jobid;
-    }
-
     public String getAssignTo() {
         return assignTo;
     }
