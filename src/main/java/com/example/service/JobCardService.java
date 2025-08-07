@@ -72,6 +72,11 @@ public class JobCardService {
         // Check if the current user is an employer (role is not "employee")
         Optional<User> userOptional = userRepository.findByEmail(currentEmail);
 
+        JobCard jobCard = optionalJobCard.get();
+        if (logjobCardDTO.getWorkstatuslog() != null) {
+            jobCard.setWorkstatus(logjobCardDTO.getWorkstatuslog());
+        }
+        jobCardRepository.save(jobCard);
         // Create and save JobEventLog if user is an employer
         JobEventLog jobEventLog = new JobEventLog();
 
@@ -143,6 +148,6 @@ public class JobCardService {
 
     // Delete Job Card by jobid
     public void deleteJobCard(String jobid) {
-        jobCardRepository.deleteByJobid(jobid);  // Delete job card by jobid
+        jobCardRepository.deleteByJobid(jobid);
     }
 }
