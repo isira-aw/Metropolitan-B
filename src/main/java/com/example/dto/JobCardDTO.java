@@ -11,7 +11,6 @@ public class JobCardDTO {
     private String description;
     private Integer hoursnumber;
     private String assignTo;
-    private String location;
     private String workstatus;
 
     public String getJobid() {

@@ -3,7 +3,9 @@ package com.example.entity;
 import jakarta.persistence.*;
 import lombok.Data;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 @Data
 @Entity
@@ -19,11 +21,13 @@ public class JobEventLog {
     private String workstatuslog;
     private String jobid;
     private String location;
-    private LocalDateTime eventTime;
+
+    @Column(name = "event_time")
+    private LocalDateTime eventTime; // Used LocalDateTime instead of LocalDate and LocalTime combined
+
     private String eventType;
 
     @ManyToOne
     @JoinColumn(name = "user_id", referencedColumnName = "id")
     private User user;
-
 }

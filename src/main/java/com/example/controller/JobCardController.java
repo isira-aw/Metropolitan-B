@@ -2,6 +2,7 @@ package com.example.controller;
 
 import com.example.dto.CommonResponse;
 import com.example.dto.JobCardDTO;
+import com.example.dto.LogJobCardDTO;
 import com.example.entity.JobCard;
 import com.example.entity.JobEventLog;
 import com.example.service.JobCardService;
@@ -36,10 +37,20 @@ public class JobCardController {
         }
     }
 
-    @PutMapping("/update/{jobid}")
-    public ResponseEntity<CommonResponse<JobCard>> updateJobCard(@PathVariable String jobid, @RequestBody JobCardDTO jobCardDTO) {
+    @PutMapping("/update-empo/{jobid}")
+    public ResponseEntity<CommonResponse<JobCard>> updateJobCardEmpoyer(@PathVariable String jobid, @RequestBody LogJobCardDTO logjobCardDTO) {
         try {
-            JobCard updatedJobCard = jobCardService.updateJobCard(jobid, jobCardDTO);
+            JobCard updatedJobCard = jobCardService.updateJobCardEmpoyer(jobid, logjobCardDTO);
+            return ResponseEntity.ok(new CommonResponse<>("success", "Job card updated successfully", updatedJobCard));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(new CommonResponse<>("error", e.getMessage(), null));
+        }
+    }
+
+    @PutMapping("/update-admin/{jobid}")
+    public ResponseEntity<CommonResponse<JobCard>> updateJobCardAdmin(@PathVariable String jobid, @RequestBody JobCardDTO jobCardDTO) {
+        try {
+            JobCard updatedJobCard = jobCardService.updateJobCardAdmin(jobid, jobCardDTO);
             return ResponseEntity.ok(new CommonResponse<>("success", "Job card updated successfully", updatedJobCard));
         } catch (Exception e) {
             return ResponseEntity.status(500).body(new CommonResponse<>("error", e.getMessage(), null));
