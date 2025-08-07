@@ -1,7 +1,10 @@
 package com.example.controller;
 
+import com.example.dto.AuthResponseDTO;
 import com.example.dto.CommonResponse;
 import com.example.dto.UserDTO;
+import com.example.entity.User;
+import com.example.repository.UserRepository;
 import com.example.service.AuthService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -14,17 +17,34 @@ public class AuthController {
     @Autowired
     private AuthService authService;
 
+    @Autowired
+    private UserRepository userRepository; // Inject the UserRepository here
+
+
+
     @PostMapping("/signin")
-    public ResponseEntity<CommonResponse<String>> signIn(@RequestBody UserDTO userDTO) {
+    public ResponseEntity<CommonResponse<AuthResponseDTO>> signIn(@RequestBody UserDTO userDTO) {
         try {
             // Attempt to sign in the user and generate a token
             String token = authService.signIn(userDTO);
-            // Return successful response with token
-            CommonResponse<String> response = new CommonResponse<>("success", "Login successful", token);
+
+            // Get the role of the user from the database
+            User user = userRepository.findByEmail(userDTO.getEmail())
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
+            String role = user.getRole();
+
+            // Create response DTO
+            AuthResponseDTO authResponseDTO = new AuthResponseDTO();
+            authResponseDTO.setToken(token);
+            authResponseDTO.setRole(role);
+
+            // Return successful response with token and role
+            CommonResponse<AuthResponseDTO> response = new CommonResponse<>("success", "Login successful", authResponseDTO);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             // In case of any errors, return error response
-            CommonResponse<String> errorResponse = new CommonResponse<>("error", "Login failed: " + e.getMessage());
+            CommonResponse<AuthResponseDTO> errorResponse = new CommonResponse<>("error", "Login failed: " + e.getMessage(), null);
             return ResponseEntity.status(500).body(errorResponse);  // Internal Server Error
         }
     }
@@ -41,8 +61,13 @@ public class AuthController {
                 return ResponseEntity.status(409).body(errorResponse);  // Conflict status code
             }
 
-            // Return success response if user is registered successfully
-            CommonResponse<String> successResponse = new CommonResponse<>("success", "User registered successfully", null);
+            // Get the role of the user after successful sign up
+            User user = userRepository.findByEmail(userDTO.getEmail())
+                    .orElseThrow(() -> new RuntimeException("User not found after signup"));
+            String role = user.getRole();
+
+            // Return success response with role information
+            CommonResponse<String> successResponse = new CommonResponse<>("success", "User registered successfully", role);
             return ResponseEntity.ok(successResponse);
 
         } catch (Exception e) {
@@ -51,4 +76,5 @@ public class AuthController {
             return ResponseEntity.status(500).body(errorResponse);  // Internal Server Error
         }
     }
+
 }

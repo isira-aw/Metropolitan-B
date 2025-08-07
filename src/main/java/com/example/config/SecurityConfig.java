@@ -12,6 +12,9 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.web.cors.CorsConfigurationSource;
 
 @Configuration
 public class SecurityConfig {
@@ -36,14 +39,28 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                .cors(cors -> cors.disable()) // Disable CORS if not needed, replace with your configuration if needed
-                .csrf(csrf -> csrf.disable())
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))  // Enable CORS with custom configuration
+                .csrf(csrf -> csrf.disable())  // Disable CSRF
                 .authorizeHttpRequests(authz -> authz
-                        .requestMatchers("/api/auth/**", "/customers/signUp", "/api/report/**").permitAll()  // Public endpoints
-                        .anyRequest().authenticated()  // All other endpoints require authentication
+                        .requestMatchers("/api/auth/**", "/customers/signUp", "/api/report/**", "/api/job-event-logs/get-logs").permitAll()  // Public endpoints
+                        .anyRequest().authenticated()  // All other requests require JWT
                 )
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class); // Add JWT filter before username/password authentication filter
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);  // Add JWT filter before username/password authentication filter
 
         return http.build();
+    }
+
+    // Configure CORS to allow requests from frontend
+    private CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.addAllowedOrigin("http://localhost:5173");  // Allow your frontend origin
+        configuration.addAllowedMethod("*");  // Allow all HTTP methods (GET, POST, etc.)
+        configuration.addAllowedHeader("*");  // Allow all headers
+        configuration.setAllowCredentials(true);  // Allow cookies to be sent
+        configuration.setMaxAge(3600L);  // Pre-flight request cache duration (1 hour)
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);  // Apply CORS configuration to all endpoints
+        return source;
     }
 }

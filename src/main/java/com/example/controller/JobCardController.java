@@ -3,11 +3,15 @@ package com.example.controller;
 import com.example.dto.CommonResponse;
 import com.example.dto.JobCardDTO;
 import com.example.entity.JobCard;
+import com.example.entity.JobEventLog;
 import com.example.service.JobCardService;
+import com.example.service.JobEventLogService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @RestController
@@ -39,6 +43,40 @@ public class JobCardController {
             return ResponseEntity.ok(new CommonResponse<>("success", "Job card updated successfully", updatedJobCard));
         } catch (Exception e) {
             return ResponseEntity.status(500).body(new CommonResponse<>("error", e.getMessage(), null));
+        }
+    }
+
+    @Autowired
+    private JobEventLogService jobEventLogService;
+
+    @RestController
+    @RequestMapping("/api/job-event-logs")
+    public class JobEventLogController {
+
+        @Autowired
+        private JobEventLogService jobEventLogService;
+
+        // Get logs without authentication (no JWT required)
+        @GetMapping("/get-logs")
+        public ResponseEntity<CommonResponse<List<JobEventLog>>> getJobEventLogs(
+                @RequestParam("startDate") String startDateStr,
+                @RequestParam("endDate") String endDateStr) {
+
+            try {
+                // Convert the date strings to LocalDateTime
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+                LocalDateTime startDate = LocalDateTime.parse(startDateStr, formatter);
+                LocalDateTime endDate = LocalDateTime.parse(endDateStr, formatter);
+
+                // Fetch the logs from the service
+                List<JobEventLog> jobEventLogs = jobEventLogService.getLogsByDateRange(startDate, endDate);
+
+                // Return the successful response with logs
+                return ResponseEntity.ok(new CommonResponse<>("success", "Logs fetched successfully", jobEventLogs));
+            } catch (Exception e) {
+                // Return error response in case of failure
+                return ResponseEntity.status(500).body(new CommonResponse<>("error", "Failed to fetch logs: " + e.getMessage(), null));
+            }
         }
     }
 

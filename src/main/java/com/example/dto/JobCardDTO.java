@@ -5,13 +5,13 @@ import lombok.Data;
 
 @Data
 public class JobCardDTO {
-
     private String jobid;
     private String generatorid;
     private String title;
     private String description;
     private Integer hoursnumber;
     private String assignTo;
+    private String location;
     private String workstatus;
 
     public String getJobid() {

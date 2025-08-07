@@ -2,12 +2,17 @@ package com.example.service;
 
 import com.example.dto.JobCardDTO;
 import com.example.entity.JobCard;
+import com.example.entity.JobEventLog;
 import com.example.entity.User;
 import com.example.repository.JobCardRepository;
+import com.example.repository.JobEventLogRepository;
 import com.example.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -19,6 +24,10 @@ public class JobCardService {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private JobEventLogRepository jobEventLogRepository;
+
 
     // Create a new Job Card
     public JobCard createJobCard(JobCardDTO jobCardDTO) {
@@ -38,36 +47,76 @@ public class JobCardService {
         return jobCardRepository.save(jobCard);
     }
 
+
     public JobCard updateJobCard(String jobid, JobCardDTO jobCardDTO) throws Exception {
         Optional<JobCard> optionalJobCard = jobCardRepository.findByJobid(jobid);
         if (optionalJobCard.isEmpty()) {
             throw new Exception("Job card not found");
         }
 
+        // Extract email from JWT token
+        String currentEmail = getCurrentUserEmailFromJwtToken();
+
+        // Check if the current user is an employer (role is not "employee")
+        Optional<User> userOptional = userRepository.findByEmail(currentEmail);
+
+            // Create and save JobEventLog if user is an employer
+            JobEventLog jobEventLog = new JobEventLog();
+            jobEventLog.setName(userOptional.get().getName());
+            jobEventLog.setEmail(currentEmail);
+            jobEventLog.setGeneratorid(jobCardDTO.getGeneratorid());
+            jobEventLog.setLocation(jobCardDTO.getLocation());
+            jobEventLog.setWorkstatuslog(jobCardDTO.getWorkstatus());
+            jobEventLog.setJobid(jobCardDTO.getJobid());
+            jobEventLog.setEventTime(LocalDateTime.now());
+
+            jobEventLogRepository.save(jobEventLog);
+
+
+        // Proceed with updating the job card
         JobCard jobCard = optionalJobCard.get();
 
         // Update job card details
-        jobCard.setTitle(jobCardDTO.getTitle());
-        jobCard.setDescription(jobCardDTO.getDescription());
-        jobCard.setHoursnumber(jobCardDTO.getHoursnumber());
-        jobCard.setGeneratorid(jobCardDTO.getGeneratorid());
+        if (jobCardDTO.getTitle() != null) {
+            jobCard.setTitle(jobCardDTO.getTitle());
+        }
+        if (jobCardDTO.getDescription() != null) {
+            jobCard.setDescription(jobCardDTO.getDescription());
+        }
 
-        // Update the assignTo field based on the provided email
+        if (jobCardDTO.getHoursnumber() != null) {
+            jobCard.setHoursnumber(jobCardDTO.getHoursnumber());
+        }
+
+        if (jobCardDTO.getWorkstatus() != null) {
+            jobCard.setWorkstatus(jobCardDTO.getWorkstatus());
+        }
+
+        if (jobCardDTO.getGeneratorid() != null) {
+            jobCard.setGeneratorid(jobCardDTO.getGeneratorid());
+        }
+
         if (jobCardDTO.getAssignTo() != null && !jobCardDTO.getAssignTo().isEmpty()) {
-            Optional<User> userOptional = userRepository.findByEmail(jobCardDTO.getAssignTo());
-            if (userOptional.isPresent()) {
-                jobCard.setAssignTo(userOptional.get());
+            Optional<User> assignToUserOptional = userRepository.findByEmail(jobCardDTO.getAssignTo());
+            if (assignToUserOptional.isPresent()) {
+                jobCard.setAssignTo(assignToUserOptional.get());
             } else {
                 throw new Exception("User not found with the given email");
             }
-        } else {
-            jobCard.setAssignTo(null);  // If no assignTo email is provided
         }
 
-        // Update and save job card
         return jobCardRepository.save(jobCard);
     }
 
+    // Utility method to extract the current user's email from JWT token
+    private String getCurrentUserEmailFromJwtToken() {
+        String email = null;
+        Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        if (principal instanceof UserDetails) {
+            email = ((UserDetails) principal).getUsername();
+        }
+        return email;
+    }
 
     // Get Job Cards by assignTo email
     public List<JobCard> getJobCardsByAssignTo(String email) {
