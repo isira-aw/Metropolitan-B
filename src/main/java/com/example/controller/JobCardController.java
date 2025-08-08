@@ -7,6 +7,7 @@ import com.example.entity.JobCard;
 import com.example.entity.JobEventLog;
 import com.example.service.JobCardService;
 import com.example.service.JobEventLogService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,7 +16,9 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/job-cards")
 public class JobCardController {
@@ -115,15 +118,13 @@ public class JobCardController {
         }
     }
 
-
-
-    // Delete Job Card
     @DeleteMapping("/delete/{jobid}")
     public ResponseEntity<CommonResponse<String>> deleteJobCard(@PathVariable String jobid) {
         try {
             jobCardService.deleteJobCard(jobid);
             return ResponseEntity.ok(new CommonResponse<>("success", "Job card deleted successfully", jobid));
         } catch (Exception e) {
+            log.error("Error deleting job card: {}", jobid, e);
             return ResponseEntity.status(500).body(new CommonResponse<>("error", e.getMessage(), null));
         }
     }

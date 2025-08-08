@@ -10,6 +10,7 @@ public class JobCard {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(unique = true)
     private String jobid;
     private String generatorid;
     private String title;
