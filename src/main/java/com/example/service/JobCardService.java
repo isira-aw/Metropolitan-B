@@ -141,6 +141,12 @@ public class JobCardService {
         return email;
     }
 
+    // Method to get all job cards
+    public List<JobCard> getAllJobCards() {
+        return jobCardRepository.findAll();  // Fetch all job cards without filtering
+    }
+
+
     // Get Job Cards by assignTo email
     public List<JobCard> getJobCardsByAssignTo(String email) {
         return jobCardRepository.findByAssignToEmail(email);  // Query job cards by email

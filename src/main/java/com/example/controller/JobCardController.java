@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/job-cards")
@@ -91,17 +92,30 @@ public class JobCardController {
         }
     }
 
-
-    // Get Job Cards by Assignto (email)
-    @GetMapping("/get-by-assign/{email}")
-    public ResponseEntity<CommonResponse<List<JobCard>>> getJobCardsByAssignTo(@PathVariable String email) {
+    @PostMapping("/get-all")
+    public ResponseEntity<CommonResponse<List<JobCard>>> getAllJobCards() {
         try {
+            // Fetch all job cards without any filtering
+            List<JobCard> jobCards = jobCardService.getAllJobCards();
+            return ResponseEntity.ok(new CommonResponse<>("success", "All Job cards fetched successfully", jobCards));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(new CommonResponse<>("error", e.getMessage(), null));
+        }
+    }
+
+    // Post Method to Get Job Cards by Assignto (email)
+    @PostMapping("/get-by-assign")
+    public ResponseEntity<CommonResponse<List<JobCard>>> getJobCardsByAssignTo(@RequestBody Map<String, String> requestBody) {
+        try {
+            String email = requestBody.get("email");
             List<JobCard> jobCards = jobCardService.getJobCardsByAssignTo(email);
             return ResponseEntity.ok(new CommonResponse<>("success", "Job cards fetched successfully", jobCards));
         } catch (Exception e) {
             return ResponseEntity.status(500).body(new CommonResponse<>("error", e.getMessage(), null));
         }
     }
+
+
 
     // Delete Job Card
     @DeleteMapping("/delete/{jobid}")
