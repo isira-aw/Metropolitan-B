@@ -1,23 +1,34 @@
 package com.example.service;
 
 import com.example.dto.JobCardDTO;
+import com.example.dto.LogJobCardDTO;
 import com.example.entity.JobCard;
 import com.example.entity.JobEventLog;
 import com.example.entity.User;
 import com.example.repository.JobCardRepository;
 import com.example.repository.JobEventLogRepository;
 import com.example.repository.UserRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
+import java.time.*;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
 
+@Slf4j
 @Service
 public class JobCardService {
+
+    ZonedDateTime colomboDateTime = ZonedDateTime.now(ZoneId.of("Asia/Colombo"));
+
+    // Format date and time separately if needed
+    String currentDate = colomboDateTime.toLocalDate().toString(); // e.g. 2025-08-07
+    String currentTime = colomboDateTime.toLocalTime().format(DateTimeFormatter.ofPattern("HH:mm:ss")); // e.g. 13:42:10
+
 
     @Autowired
     private JobCardRepository jobCardRepository;
@@ -48,11 +59,12 @@ public class JobCardService {
     }
 
 
-    public JobCard updateJobCard(String jobid, JobCardDTO jobCardDTO) throws Exception {
+    public JobCard updateJobCardEmpoyer(String jobid, LogJobCardDTO logjobCardDTO) throws Exception {
         Optional<JobCard> optionalJobCard = jobCardRepository.findByJobid(jobid);
         if (optionalJobCard.isEmpty()) {
             throw new Exception("Job card not found");
         }
+        log.info("endpoint hit | {}", optionalJobCard.get().getJobid());
 
         // Extract email from JWT token
         String currentEmail = getCurrentUserEmailFromJwtToken();
@@ -60,23 +72,34 @@ public class JobCardService {
         // Check if the current user is an employer (role is not "employee")
         Optional<User> userOptional = userRepository.findByEmail(currentEmail);
 
-            // Create and save JobEventLog if user is an employer
-            JobEventLog jobEventLog = new JobEventLog();
-            jobEventLog.setName(userOptional.get().getName());
-            jobEventLog.setEmail(currentEmail);
-            jobEventLog.setGeneratorid(jobCardDTO.getGeneratorid());
-            jobEventLog.setLocation(jobCardDTO.getLocation());
-            jobEventLog.setWorkstatuslog(jobCardDTO.getWorkstatus());
-            jobEventLog.setJobid(jobCardDTO.getJobid());
-            jobEventLog.setEventTime(LocalDateTime.now());
+        JobCard jobCard = optionalJobCard.get();
+        if (logjobCardDTO.getWorkstatuslog() != null) {
+            jobCard.setWorkstatus(logjobCardDTO.getWorkstatuslog());
+        }
+        jobCardRepository.save(jobCard);
+        // Create and save JobEventLog if user is an employer
+        JobEventLog jobEventLog = new JobEventLog();
 
-            jobEventLogRepository.save(jobEventLog);
+        jobEventLog.setName(userOptional.get().getName());
+        jobEventLog.setEmail(currentEmail);
+        jobEventLog.setGeneratorid(optionalJobCard.get().getGeneratorid());
+        jobEventLog.setWorkstatuslog(logjobCardDTO.getWorkstatuslog());
+        jobEventLog.setJobid(jobid);
+        jobEventLog.setLocation(logjobCardDTO.getLocation());
+        jobEventLog.setEventTime(LocalDateTime.now());
 
+        jobEventLogRepository.save(jobEventLog);
+        return optionalJobCard.get();
+    }
 
-        // Proceed with updating the job card
+    public JobCard updateJobCardAdmin(String jobid, JobCardDTO jobCardDTO) throws Exception {
+        Optional<JobCard> optionalJobCard = jobCardRepository.findByJobid(jobid);
+        if (optionalJobCard.isEmpty()) {
+            throw new Exception("Job card not found");
+        }
+
         JobCard jobCard = optionalJobCard.get();
 
-        // Update job card details
         if (jobCardDTO.getTitle() != null) {
             jobCard.setTitle(jobCardDTO.getTitle());
         }
@@ -125,6 +148,6 @@ public class JobCardService {
 
     // Delete Job Card by jobid
     public void deleteJobCard(String jobid) {
-        jobCardRepository.deleteByJobid(jobid);  // Delete job card by jobid
+        jobCardRepository.deleteByJobid(jobid);
     }
 }
