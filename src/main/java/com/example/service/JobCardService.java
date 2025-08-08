@@ -50,6 +50,7 @@ public class JobCardService {
         jobCard.setDescription(jobCardDTO.getDescription());
         jobCard.setHoursnumber(jobCardDTO.getHoursnumber());
         jobCard.setWorkstatus(jobCardDTO.getWorkstatus() != null ? jobCardDTO.getWorkstatus() : "Pending");
+        jobCard.setDate(LocalDate.now());
 
         if (jobCardDTO.getAssignTo() != null) {
             Optional<User> userOptional = userRepository.findByEmail(jobCardDTO.getAssignTo());

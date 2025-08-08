@@ -3,6 +3,8 @@ package com.example.entity;
 import jakarta.persistence.*;
 import lombok.Data;
 
+import java.time.LocalDate;
+
 @Data
 @Entity
 public class JobCard {
@@ -23,4 +25,6 @@ public class JobCard {
     @ManyToOne
     @JoinColumn(name = "assigned_to", referencedColumnName = "email")
     private User assignTo;
+
+    private LocalDate date;
 }
