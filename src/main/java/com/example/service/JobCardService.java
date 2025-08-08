@@ -8,6 +8,7 @@ import com.example.entity.User;
 import com.example.repository.JobCardRepository;
 import com.example.repository.JobEventLogRepository;
 import com.example.repository.UserRepository;
+import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -49,6 +50,7 @@ public class JobCardService {
         jobCard.setDescription(jobCardDTO.getDescription());
         jobCard.setHoursnumber(jobCardDTO.getHoursnumber());
         jobCard.setWorkstatus(jobCardDTO.getWorkstatus() != null ? jobCardDTO.getWorkstatus() : "Pending");
+        jobCard.setDate(LocalDate.now());
 
         if (jobCardDTO.getAssignTo() != null) {
             Optional<User> userOptional = userRepository.findByEmail(jobCardDTO.getAssignTo());
@@ -152,8 +154,15 @@ public class JobCardService {
         return jobCardRepository.findByAssignToEmail(email);  // Query job cards by email
     }
 
-    // Delete Job Card by jobid
+    @Transactional
     public void deleteJobCard(String jobid) {
+        // Check if there are multiple records with the same jobid
+        long count = jobCardRepository.countByJobid(jobid);
+        if (count == 0) {
+            throw new RuntimeException("Job card with jobid " + jobid + " not found.");
+        }
+
+        // Delete all job cards with the given jobid
         jobCardRepository.deleteByJobid(jobid);
     }
 }

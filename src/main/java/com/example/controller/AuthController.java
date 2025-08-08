@@ -38,6 +38,7 @@ public class AuthController {
             AuthResponseDTO authResponseDTO = new AuthResponseDTO();
             authResponseDTO.setToken(token);
             authResponseDTO.setRole(role);
+            authResponseDTO.setName(user.getName());
 
             // Return successful response with token and role
             CommonResponse<AuthResponseDTO> response = new CommonResponse<>("success", "Login successful", authResponseDTO);

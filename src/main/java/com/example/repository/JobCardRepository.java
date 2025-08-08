@@ -16,6 +16,9 @@ public interface JobCardRepository extends JpaRepository<JobCard, Long> {
     // Custom method to delete job card by jobid
     void deleteByJobid(String jobid);
 
+    // Custom method to count job cards by jobid
+    long countByJobid(String jobid);
+
     // Custom method to find job cards by assignTo email
     List<JobCard> findByAssignToEmail(String email);
 }
