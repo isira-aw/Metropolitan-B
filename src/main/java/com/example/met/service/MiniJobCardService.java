@@ -3,10 +3,7 @@ package com.example.met.service;
 import com.example.met.dto.request.MiniJobCardRequest;
 import com.example.met.dto.request.MiniJobCardUpdateRequest;
 import com.example.met.dto.response.MiniJobCardResponse;
-import com.example.met.entity.Employee;
-import com.example.met.entity.JobCard;
-import com.example.met.entity.Log;
-import com.example.met.entity.MiniJobCard;
+import com.example.met.entity.*;
 import com.example.met.enums.JobStatus;
 import com.example.met.exception.ResourceNotFoundException;
 import com.example.met.repository.JobCardRepository;
@@ -150,8 +147,12 @@ public class MiniJobCardService {
         logRepository.save(log);
     }
 
+
+
     private MiniJobCardResponse convertToResponse(MiniJobCard miniJobCard) {
         MiniJobCardResponse response = new MiniJobCardResponse();
+
+        // Basic mini job card info
         response.setMiniJobCardId(miniJobCard.getMiniJobCardId());
         response.setJobCardId(miniJobCard.getJobCard().getJobCardId());
         response.setEmployeeEmail(miniJobCard.getEmployee().getEmail());
@@ -162,6 +163,20 @@ public class MiniJobCardService {
         response.setTime(miniJobCard.getTime());
         response.setCreatedAt(miniJobCard.getCreatedAt());
         response.setUpdatedAt(miniJobCard.getUpdatedAt());
+
+        // Enhanced job card details
+        response.setJobType(miniJobCard.getJobCard().getJobType());
+        response.setEstimatedTime(miniJobCard.getJobCard().getEstimatedTime());
+
+        // Full generator details
+        Generator generator = miniJobCard.getJobCard().getGenerator();
+        response.setGeneratorId(generator.getGeneratorId());
+        response.setGeneratorName(generator.getName());
+        response.setGeneratorCapacity(generator.getCapacity());
+        response.setGeneratorContactNumber(generator.getContactNumber());
+        response.setGeneratorEmail(generator.getEmail());
+        response.setGeneratorDescription(generator.getDescription());
+
         return response;
     }
 }

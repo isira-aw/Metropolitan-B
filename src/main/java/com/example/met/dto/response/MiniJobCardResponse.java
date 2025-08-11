@@ -1,5 +1,6 @@
 package com.example.met.dto.response;
 
+import com.example.met.enums.JobCardType;
 import com.example.met.enums.JobStatus;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -14,6 +15,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 public class MiniJobCardResponse {
+    // Mini job card basic info
     private UUID miniJobCardId;
     private UUID jobCardId;
     private String employeeEmail;
@@ -24,4 +26,16 @@ public class MiniJobCardResponse {
     private LocalTime time;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    // Enhanced job card details
+    private JobCardType jobType;           // SERVICE or REPAIR
+    private LocalTime estimatedTime;       // Job estimated time
+
+    // Full generator details
+    private UUID generatorId;
+    private String generatorName;
+    private String generatorCapacity;
+    private String generatorContactNumber;
+    private String generatorEmail;
+    private String generatorDescription;
 }
