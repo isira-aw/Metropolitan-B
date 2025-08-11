@@ -158,4 +158,22 @@ public class JobCardService {
         response.setUpdatedAt(jobCard.getUpdatedAt());
         return response;
     }
+
+    @Transactional
+    public void deleteJobCard(UUID id) {
+        log.info("Deleting job card with ID: {}", id);
+
+        JobCard jobCard = findById(id);
+
+        // First delete all related mini job cards
+        List<MiniJobCard> miniJobCards = miniJobCardRepository.findByJobCardJobCardId(id);
+        if (!miniJobCards.isEmpty()) {
+            miniJobCardRepository.deleteAll(miniJobCards);
+            log.info("Deleted {} mini job cards for job card: {}", miniJobCards.size(), id);
+        }
+
+        // Then delete the main job card
+        jobCardRepository.delete(jobCard);
+        log.info("Job card deleted successfully with ID: {}", id);
+    }
 }

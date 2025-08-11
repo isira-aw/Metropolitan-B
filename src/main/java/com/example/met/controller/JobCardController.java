@@ -101,4 +101,16 @@ public class JobCardController {
 
         return ResponseEntity.ok(response);
     }
+
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'EMPLOYEE')")
+    public ResponseEntity<ApiResponse<Void>> deleteJobCard(@PathVariable UUID id) {
+        log.info("Request to delete job card: {}", id);
+
+        jobCardService.deleteJobCard(id);
+        ApiResponse<Void> response = ApiResponse.success("Job card and all related tasks deleted successfully");
+
+        return ResponseEntity.ok(response);
+    }
 }
