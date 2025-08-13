@@ -9,11 +9,13 @@ import com.example.met.service.JobCardService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -76,6 +78,19 @@ public class JobCardController {
         List<JobCardResponse> jobCards = jobCardService.getJobCardsByType(type);
         ApiResponse<List<JobCardResponse>> response = ApiResponse.success(
                 "Job cards retrieved successfully", jobCards);
+
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/by-date")
+    public ResponseEntity<ApiResponse<List<JobCardResponse>>> getJobCardsByDate(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+
+        log.info("Request to get job cards by date: {}", date);
+
+        List<JobCardResponse> jobCards = jobCardService.getJobCardsByDate(date);
+        ApiResponse<List<JobCardResponse>> response = ApiResponse.success(
+                "Job cards for date " + date + " retrieved successfully", jobCards);
 
         return ResponseEntity.ok(response);
     }
