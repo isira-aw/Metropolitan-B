@@ -14,9 +14,12 @@ import com.example.met.repository.JobCardRepository;
 import com.example.met.repository.MiniJobCardRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -107,13 +110,21 @@ public class JobCardService {
         return convertToResponse(jobCard);
     }
 
-    public List<JobCardResponse> getAllJobCards() {
-        log.info("Fetching all job cards");
-        return jobCardRepository.findAll()
-                .stream()
-                .map(this::convertToResponse)
-                .collect(Collectors.toList());
-    }
+//    public List<JobCardResponse> getAllJobCards() {
+//        log.info("Fetching all job cards");
+//        return jobCardRepository.findAll()
+//                .stream()
+//                .map(this::convertToResponse)
+//                .collect(Collectors.toList());
+//    }
+public List<JobCardResponse> getAllJobCards() {
+    log.info("Fetching latest 100 job cards");
+    Pageable pageable = PageRequest.of(0, 100);
+    return jobCardRepository.findTop100ByOrderByUpdatedAtDesc(pageable)
+            .stream()
+            .map(this::convertToResponse)
+            .collect(Collectors.toList());
+}
 
     public List<JobCardResponse> getJobCardsByType(JobCardType type) {
         log.info("Fetching job cards by type: {}", type);
@@ -127,6 +138,16 @@ public class JobCardService {
         log.info("Fetching job cards for employee: {}", email);
         return jobCardRepository.findByEmployeeEmail(email)
                 .stream()
+                .map(this::convertToResponse)
+                .collect(Collectors.toList());
+    }
+
+    public List<JobCardResponse> getJobCardsByDate(LocalDate date) {
+        log.info("Fetching job cards by date: {}", date);
+
+        return jobCardRepository.findByDate(date)
+                .stream()
+                .sorted((j1, j2) -> j2.getUpdatedAt().compareTo(j1.getUpdatedAt())) // Latest updates first
                 .map(this::convertToResponse)
                 .collect(Collectors.toList());
     }

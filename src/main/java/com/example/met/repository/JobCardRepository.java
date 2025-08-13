@@ -2,6 +2,7 @@ package com.example.met.repository;
 
 import com.example.met.entity.JobCard;
 import com.example.met.enums.JobCardType;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -20,6 +21,8 @@ public interface JobCardRepository extends JpaRepository<JobCard, UUID> {
 
     List<JobCard> findByDate(LocalDate date);
 
+    @Query("SELECT j FROM JobCard j ORDER BY j.updatedAt DESC")
+    List<JobCard> findTop100ByOrderByUpdatedAtDesc(Pageable pageable);
 
     @Query("SELECT j FROM JobCard j WHERE :email MEMBER OF j.employeeEmails")
     List<JobCard> findByEmployeeEmail(@Param("email") String email);
