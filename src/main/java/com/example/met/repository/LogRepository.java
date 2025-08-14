@@ -35,4 +35,11 @@ public interface LogRepository extends JpaRepository<Log, UUID> {
 
     @Query("SELECT COUNT(l) FROM Log l WHERE l.employee.email = :email AND l.date = :date")
     long countByEmployeeEmailAndDate(@Param("email") String email, @Param("date") LocalDate date);
+
+    /**
+     * Find logs by employee email within a date range
+     */
+    List<Log> findByEmployeeEmailAndDateBetween(String email, LocalDate startDate, LocalDate endDate);
+
+
 }
