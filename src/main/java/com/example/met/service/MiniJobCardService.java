@@ -86,6 +86,14 @@ public class MiniJobCardService {
                 .collect(Collectors.toList());
     }
 
+    public List<MiniJobCardResponse> getMiniJobCardsByEmployeeAndDate(String email, LocalDate date) {
+        log.info("Fetching mini job cards for employee: {} on date: {}", email, date);
+        return miniJobCardRepository.findByEmployeeEmailAndDate(email, date)
+                .stream()
+                .map(this::convertToResponse)
+                .collect(Collectors.toList());
+    }
+
     public List<MiniJobCardResponse> getMiniJobCardsByJobCard(UUID jobCardId) {
         log.info("Fetching mini job cards for job card: {}", jobCardId);
         return miniJobCardRepository.findByJobCardJobCardId(jobCardId)
