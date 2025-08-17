@@ -16,6 +16,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -24,6 +26,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class MiniJobCardService {
+
+    ZonedDateTime sriLankaTime = ZonedDateTime.now(ZoneId.of("Asia/Colombo"));
 
     private final MiniJobCardRepository miniJobCardRepository;
     // REMOVED: JobCardService to break circular dependency
@@ -148,7 +152,7 @@ public class MiniJobCardService {
         log.setEmployee(miniJobCard.getEmployee());
         log.setAction("UPDATE_MINI_JOB_CARD");
         log.setDate(LocalDate.now());
-        log.setTime(LocalTime.now());
+        log.setTime(sriLankaTime.toLocalTime());
         log.setStatus("Updated from " + oldStatus.name() + " to " + miniJobCard.getStatus().name());
         log.setLocation(miniJobCard.getLocation());
 
