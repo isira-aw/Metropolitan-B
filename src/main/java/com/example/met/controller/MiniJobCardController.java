@@ -14,6 +14,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.UUID;
 
@@ -69,6 +71,36 @@ public class MiniJobCardController {
 
         return ResponseEntity.ok(response);
     }
+
+    // Controller Method
+    @GetMapping("/employee/{email}/date/{date}")
+    public ResponseEntity<ApiResponse<List<MiniJobCardResponse>>> getMiniJobCardsByEmployeeAndDate(
+            @PathVariable String email,
+            @PathVariable String date) {
+        log.info("Request to get mini job cards for employee: {} on date: {}", email, date);
+
+        try {
+            // Parse the date string to LocalDate
+            LocalDate searchDate = LocalDate.parse(date);
+
+            List<MiniJobCardResponse> miniJobCards = miniJobCardService.getMiniJobCardsByEmployeeAndDate(email, searchDate);
+            ApiResponse<List<MiniJobCardResponse>> response = ApiResponse.success(
+                    "Mini job cards retrieved successfully for date: " + date, miniJobCards);
+
+            return ResponseEntity.ok(response);
+        } catch (DateTimeParseException e) {
+            log.error("Invalid date format: {}", date, e);
+            ApiResponse<List<MiniJobCardResponse>> response = ApiResponse.error(
+                    "Invalid date format. Please use YYYY-MM-DD format", null);
+            return ResponseEntity.badRequest().body(response);
+        } catch (Exception e) {
+            log.error("Error fetching mini job cards for employee: {} on date: {}", email, date, e);
+            ApiResponse<List<MiniJobCardResponse>> response = ApiResponse.error(
+                    "Failed to retrieve mini job cards", null);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
+
 
     @GetMapping("/jobcard/{jobCardId}")
     public ResponseEntity<ApiResponse<List<MiniJobCardResponse>>> getMiniJobCardsByJobCard(@PathVariable UUID jobCardId) {
