@@ -27,14 +27,19 @@ public interface LogRepository extends JpaRepository<Log, UUID> {
     @Query("SELECT l FROM Log l WHERE l.employee.email = :email ORDER BY l.createdAt DESC")
     List<Log> findByEmployeeEmailOrderByCreatedAtDesc(@Param("email") String email);
 
-    @Query("SELECT l FROM Log l WHERE l.createdAt >= :fromDateTime ORDER BY l.createdAt DESC")
-    List<Log> findRecentLogs(@Param("fromDateTime") LocalDateTime fromDateTime);
-
     @Query("SELECT l FROM Log l WHERE l.employee.email = :email AND l.action = :action")
     List<Log> findByEmployeeEmailAndAction(@Param("email") String email, @Param("action") String action);
 
     @Query("SELECT COUNT(l) FROM Log l WHERE l.employee.email = :email AND l.date = :date")
     long countByEmployeeEmailAndDate(@Param("email") String email, @Param("date") LocalDate date);
+
+    @Query("SELECT l FROM Log l WHERE l.createdAt >= :fromDateTime AND l.time IS NOT NULL ORDER BY l.createdAt DESC")
+    List<Log> findRecentLogs(@Param("fromDateTime") LocalDateTime fromDateTime);
+
+    // Also update the findAll equivalent
+    @Query("SELECT l FROM Log l WHERE l.time IS NOT NULL ORDER BY l.createdAt DESC")
+    List<Log> findAllValidLogs();
+
 
     /**
      * Find logs by employee email within a date range
