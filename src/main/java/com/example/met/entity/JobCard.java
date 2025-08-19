@@ -60,5 +60,9 @@ public class JobCard {
         if (this.jobId == null) {
             this.jobId = UUID.randomUUID();
         }
+        // Set default estimated time if not provided
+        if (this.estimatedTime == null) {
+            this.estimatedTime = LocalTime.now(java.time.ZoneId.of("Asia/Colombo"));
+        }
     }
 }

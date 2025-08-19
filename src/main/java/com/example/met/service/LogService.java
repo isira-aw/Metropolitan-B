@@ -4,6 +4,7 @@ import com.example.met.dto.response.LogResponse;
 import com.example.met.entity.Log;
 import com.example.met.exception.ResourceNotFoundException;
 import com.example.met.repository.LogRepository;
+import com.example.met.util.TimeZoneUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -11,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -23,9 +25,17 @@ public class LogService {
     private final LogRepository logRepository;
 
     @Transactional
-    public Log createLog(Log log) {
-        Log savedLog = logRepository.save(log);
-//        log.info("Log created with ID: {}", savedLog.getLogId());
+    public Log createLog(Log logEntry) {
+        // Ensure time and date are set if not provided
+        if (logEntry.getTime() == null) {
+            logEntry.setTime(TimeZoneUtil.getCurrentTime());
+        }
+        if (logEntry.getDate() == null) {
+            logEntry.setDate(TimeZoneUtil.getCurrentDate());
+        }
+
+        Log savedLog = logRepository.save(logEntry);
+        log.info("Log created with ID: {}", savedLog.getLogId());
         return savedLog;
     }
 
@@ -35,8 +45,8 @@ public class LogService {
     }
 
     public LogResponse getLogResponse(UUID id) {
-        Log log = findById(id);
-        return convertToResponse(log);
+        Log logEntry = findById(id);
+        return convertToResponse(logEntry);
     }
 
     public List<LogResponse> getAllLogs() {
@@ -72,25 +82,26 @@ public class LogService {
     }
 
     public List<LogResponse> getRecentLogs(int hours) {
-        LocalDateTime fromDateTime = LocalDateTime.now().minusHours(hours);
+        LocalDateTime fromDateTime = TimeZoneUtil.getCurrentDateTime().minusHours(hours);
         log.info("Fetching logs from last {} hours", hours);
+
         return logRepository.findRecentLogs(fromDateTime)
                 .stream()
                 .map(this::convertToResponse)
                 .collect(Collectors.toList());
     }
 
-    private LogResponse convertToResponse(Log log) {
+    private LogResponse convertToResponse(Log logEntry) {
         LogResponse response = new LogResponse();
-        response.setLogId(log.getLogId());
-        response.setEmployeeEmail(log.getEmployee().getEmail());
-        response.setEmployeeName(log.getEmployee().getName());
-        response.setAction(log.getAction());
-        response.setDate(log.getDate());
-        response.setTime(log.getTime());
-        response.setStatus(log.getStatus());
-        response.setLocation(log.getLocation());
-        response.setCreatedAt(log.getCreatedAt());
+        response.setLogId(logEntry.getLogId());
+        response.setEmployeeEmail(logEntry.getEmployee().getEmail());
+        response.setEmployeeName(logEntry.getEmployee().getName());
+        response.setAction(logEntry.getAction());
+        response.setDate(logEntry.getDate());
+        response.setTime(logEntry.getTime());
+        response.setStatus(logEntry.getStatus());
+        response.setLocation(logEntry.getLocation());
+        response.setCreatedAt(logEntry.getCreatedAt());
         return response;
     }
 }
