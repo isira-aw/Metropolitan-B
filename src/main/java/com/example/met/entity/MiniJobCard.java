@@ -50,4 +50,14 @@ public class MiniJobCard {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    @PrePersist
+    private void setDefaults() {
+        if (this.time == null) {
+            this.time = LocalTime.now(java.time.ZoneId.of("Asia/Colombo"));
+        }
+        if (this.date == null) {
+            this.date = LocalDate.now(java.time.ZoneId.of("Asia/Colombo"));
+        }
+    }
 }

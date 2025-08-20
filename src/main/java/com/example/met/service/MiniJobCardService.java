@@ -9,6 +9,7 @@ import com.example.met.exception.ResourceNotFoundException;
 import com.example.met.repository.JobCardRepository;
 import com.example.met.repository.LogRepository;
 import com.example.met.repository.MiniJobCardRepository;
+import com.example.met.util.TimeZoneUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -17,7 +18,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
-import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -27,16 +27,21 @@ import java.util.stream.Collectors;
 @Slf4j
 public class MiniJobCardService {
 
-    ZonedDateTime sriLankaTime = ZonedDateTime.now(ZoneId.of("Asia/Colombo"));
-
     private final MiniJobCardRepository miniJobCardRepository;
-    // REMOVED: JobCardService to break circular dependency
     private final JobCardRepository jobCardRepository;
     private final EmployeeService employeeService;
     private final LogRepository logRepository;
 
     @Transactional
     public MiniJobCard createMiniJobCard(MiniJobCard miniJobCard) {
+        // Ensure time is set if not provided
+        if (miniJobCard.getTime() == null) {
+            miniJobCard.setTime(TimeZoneUtil.getCurrentTime());
+        }
+        if (miniJobCard.getDate() == null) {
+            miniJobCard.setDate(TimeZoneUtil.getCurrentDate());
+        }
+
         MiniJobCard saved = miniJobCardRepository.save(miniJobCard);
         log.info("Mini job card created with ID: {}", saved.getMiniJobCardId());
         return saved;
@@ -56,7 +61,13 @@ public class MiniJobCardService {
         miniJobCard.setEmployee(employee);
         miniJobCard.setDate(request.getDate());
         miniJobCard.setLocation(request.getLocation());
-        miniJobCard.setTime(request.getTime());
+
+        // FIX: Set time properly for Sri Lanka timezone
+        if (request.getTime() != null) {
+            miniJobCard.setTime(request.getTime());
+        } else {
+            miniJobCard.setTime(LocalTime.now(ZoneId.of("Asia/Colombo")));
+        }
         miniJobCard.setStatus(JobStatus.PENDING);
 
         miniJobCard = miniJobCardRepository.save(miniJobCard);
@@ -136,6 +147,9 @@ public class MiniJobCardService {
         }
         if (request.getTime() != null) {
             miniJobCard.setTime(request.getTime());
+        } else {
+            // Set current time if not provided
+            miniJobCard.setTime(TimeZoneUtil.getCurrentTime());
         }
 
         miniJobCard = miniJobCardRepository.save(miniJobCard);
@@ -151,16 +165,13 @@ public class MiniJobCardService {
         Log log = new Log();
         log.setEmployee(miniJobCard.getEmployee());
         log.setAction("UPDATE_MINI_JOB_CARD");
-        log.setDate(LocalDate.now());
-        log.setTime(sriLankaTime.toLocalTime());
+        log.setDate(LocalDate.now(ZoneId.of("Asia/Colombo")));
+        log.setTime(LocalTime.now(ZoneId.of("Asia/Colombo"))); // FIX: Use Sri Lanka timezone
         log.setStatus("Updated from " + oldStatus.name() + " to " + miniJobCard.getStatus().name());
         log.setLocation(miniJobCard.getLocation());
 
         logRepository.save(log);
     }
-
-
-
     private MiniJobCardResponse convertToResponse(MiniJobCard miniJobCard) {
         MiniJobCardResponse response = new MiniJobCardResponse();
 

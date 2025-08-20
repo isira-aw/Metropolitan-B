@@ -42,4 +42,14 @@ public class Log {
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
+
+    @PrePersist
+    private void setDefaults() {
+        if (this.time == null) {
+            this.time = LocalTime.now(java.time.ZoneId.of("Asia/Colombo"));
+        }
+        if (this.date == null) {
+            this.date = LocalDate.now(java.time.ZoneId.of("Asia/Colombo"));
+        }
+    }
 }
