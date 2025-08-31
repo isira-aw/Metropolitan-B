@@ -8,12 +8,15 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class EmailService {
+
+    private static final ZoneId SRI_LANKA_ZONE = ZoneId.of("Asia/Colombo");
 
     private final JavaMailSender mailSender;
 
@@ -75,7 +78,7 @@ public class EmailService {
     }
 
     private String buildPasswordResetEmailBody(String name, String resetLink) {
-        String currentDateTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("MMM dd, yyyy 'at' HH:mm"));
+        String currentDateTime = LocalDateTime.now(SRI_LANKA_ZONE).format(DateTimeFormatter.ofPattern("MMM dd, yyyy 'at' HH:mm"));
 
         return String.format("""
             Dear %s,
@@ -91,7 +94,7 @@ public class EmailService {
             If you did not request this password reset, please ignore this email and your password will remain unchanged. For your security, you may also want to contact our support team at %s.
             
             Request Details:
-            - Requested on: %s
+            - Requested on: %s (Sri Lanka Time)
             - Your email: %s
             
             Important Security Notes:
@@ -111,7 +114,7 @@ public class EmailService {
     }
 
     private String buildPasswordResetConfirmationEmailBody(String name) {
-        String currentDateTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("MMM dd, yyyy 'at' HH:mm"));
+        String currentDateTime = LocalDateTime.now(SRI_LANKA_ZONE).format(DateTimeFormatter.ofPattern("MMM dd, yyyy 'at' HH:mm"));
 
         return String.format("""
             Dear %s,
@@ -119,7 +122,7 @@ public class EmailService {
             This email confirms that your password for your %s account has been successfully reset.
             
             Password Change Details:
-            - Changed on: %s
+            - Changed on: %s (Sri Lanka Time)
             - Account: %s
             
             If you did not make this change, please contact our support team immediately at %s.
