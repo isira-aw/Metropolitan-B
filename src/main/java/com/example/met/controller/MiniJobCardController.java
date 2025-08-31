@@ -30,56 +30,107 @@ public class MiniJobCardController {
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'EMPLOYEE')")
     public ResponseEntity<ApiResponse<MiniJobCardResponse>> createMiniJobCard(@Valid @RequestBody MiniJobCardRequest request) {
-        log.info("Request to create mini job card for job card: {} and employee: {}",
-                request.getJobCardId(), request.getEmployeeEmail());
+        try {
+            log.info("Request to create mini job card for job card: {} and employee: {}",
+                    request.getJobCardId(), request.getEmployeeEmail());
 
-        MiniJobCardResponse miniJobCard = miniJobCardService.createMiniJobCardFromRequest(request);
-        ApiResponse<MiniJobCardResponse> response = ApiResponse.success("Mini job card created successfully", miniJobCard);
+            MiniJobCardResponse miniJobCard = miniJobCardService.createMiniJobCardFromRequest(request);
+            ApiResponse<MiniJobCardResponse> response = ApiResponse.success("Mini job card created successfully", miniJobCard);
 
-        return new ResponseEntity<>(response, HttpStatus.CREATED);
+            return new ResponseEntity<>(response, HttpStatus.CREATED);
+        } catch (IllegalArgumentException e) {
+            log.error("Invalid request data for creating mini job card: {}", e.getMessage(), e);
+            ApiResponse<MiniJobCardResponse> response = ApiResponse.error("Invalid request data: " + e.getMessage(), null);
+            return ResponseEntity.badRequest().body(response);
+        } catch (Exception e) {
+            log.error("Error creating mini job card for job card: {} and employee: {}",
+                    request.getJobCardId(), request.getEmployeeEmail(), e);
+            ApiResponse<MiniJobCardResponse> response = ApiResponse.error("Failed to create mini job card", null);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
     }
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<MiniJobCardResponse>>> getAllMiniJobCards() {
-        log.info("Request to get all mini job cards");
+        try {
+            log.info("Request to get all mini job cards");
 
-        List<MiniJobCardResponse> miniJobCards = miniJobCardService.getAllMiniJobCards();
-        ApiResponse<List<MiniJobCardResponse>> response = ApiResponse.success(
-                "Mini job cards retrieved successfully", miniJobCards);
+            List<MiniJobCardResponse> miniJobCards = miniJobCardService.getAllMiniJobCards();
+            ApiResponse<List<MiniJobCardResponse>> response = ApiResponse.success(
+                    "Mini job cards retrieved successfully", miniJobCards);
 
-        return ResponseEntity.ok(response);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Error retrieving all mini job cards", e);
+            ApiResponse<List<MiniJobCardResponse>> response = ApiResponse.error(
+                    "Failed to retrieve mini job cards", null);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<MiniJobCardResponse>> getMiniJobCardById(@PathVariable UUID id) {
-        log.info("Request to get mini job card by ID: {}", id);
+        try {
+            log.info("Request to get mini job card by ID: {}", id);
 
-        MiniJobCardResponse miniJobCard = miniJobCardService.getMiniJobCardResponse(id);
-        ApiResponse<MiniJobCardResponse> response = ApiResponse.success(
-                "Mini job card retrieved successfully", miniJobCard);
+            MiniJobCardResponse miniJobCard = miniJobCardService.getMiniJobCardResponse(id);
+            ApiResponse<MiniJobCardResponse> response = ApiResponse.success(
+                    "Mini job card retrieved successfully", miniJobCard);
 
-        return ResponseEntity.ok(response);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            log.error("Mini job card not found with ID: {}", id, e);
+            ApiResponse<MiniJobCardResponse> response = ApiResponse.error("Mini job card not found", null);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+        } catch (Exception e) {
+            log.error("Error retrieving mini job card by ID: {}", id, e);
+            ApiResponse<MiniJobCardResponse> response = ApiResponse.error(
+                    "Failed to retrieve mini job card", null);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
     }
 
     @GetMapping("/employee/{email}")
     public ResponseEntity<ApiResponse<List<MiniJobCardResponse>>> getMiniJobCardsByEmployee(@PathVariable String email) {
-        log.info("Request to get mini job cards for employee: {}", email);
+        try {
+            log.info("Request to get mini job cards for employee: {}", email);
 
-        List<MiniJobCardResponse> miniJobCards = miniJobCardService.getMiniJobCardsByEmployee(email);
-        ApiResponse<List<MiniJobCardResponse>> response = ApiResponse.success(
-                "Mini job cards retrieved successfully", miniJobCards);
+            // Validate email format
+            if (email == null || email.trim().isEmpty()) {
+                ApiResponse<List<MiniJobCardResponse>> response = ApiResponse.error("Employee email cannot be empty", null);
+                return ResponseEntity.badRequest().body(response);
+            }
 
-        return ResponseEntity.ok(response);
+            List<MiniJobCardResponse> miniJobCards = miniJobCardService.getMiniJobCardsByEmployee(email);
+            ApiResponse<List<MiniJobCardResponse>> response = ApiResponse.success(
+                    "Mini job cards retrieved successfully", miniJobCards);
+
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            log.error("Invalid employee email: {}", email, e);
+            ApiResponse<List<MiniJobCardResponse>> response = ApiResponse.error("Invalid employee email: " + e.getMessage(), null);
+            return ResponseEntity.badRequest().body(response);
+        } catch (Exception e) {
+            log.error("Error retrieving mini job cards for employee: {}", email, e);
+            ApiResponse<List<MiniJobCardResponse>> response = ApiResponse.error(
+                    "Failed to retrieve mini job cards for employee", null);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
     }
 
-    // Controller Method
     @GetMapping("/employee/{email}/date/{date}")
     public ResponseEntity<ApiResponse<List<MiniJobCardResponse>>> getMiniJobCardsByEmployeeAndDate(
             @PathVariable String email,
             @PathVariable String date) {
-        log.info("Request to get mini job cards for employee: {} on date: {}", email, date);
-
         try {
+            log.info("Request to get mini job cards for employee: {} on date: {}", email, date);
+
+            // Validate email
+            if (email == null || email.trim().isEmpty()) {
+                ApiResponse<List<MiniJobCardResponse>> response = ApiResponse.error("Employee email cannot be empty", null);
+                return ResponseEntity.badRequest().body(response);
+            }
+
             // Parse the date string to LocalDate
             LocalDate searchDate = LocalDate.parse(date);
 
@@ -93,6 +144,11 @@ public class MiniJobCardController {
             ApiResponse<List<MiniJobCardResponse>> response = ApiResponse.error(
                     "Invalid date format. Please use YYYY-MM-DD format", null);
             return ResponseEntity.badRequest().body(response);
+        } catch (IllegalArgumentException e) {
+            log.error("Invalid request parameters for employee: {} and date: {}", email, date, e);
+            ApiResponse<List<MiniJobCardResponse>> response = ApiResponse.error(
+                    "Invalid request parameters: " + e.getMessage(), null);
+            return ResponseEntity.badRequest().body(response);
         } catch (Exception e) {
             log.error("Error fetching mini job cards for employee: {} on date: {}", email, date, e);
             ApiResponse<List<MiniJobCardResponse>> response = ApiResponse.error(
@@ -101,27 +157,48 @@ public class MiniJobCardController {
         }
     }
 
-
     @GetMapping("/jobcard/{jobCardId}")
     public ResponseEntity<ApiResponse<List<MiniJobCardResponse>>> getMiniJobCardsByJobCard(@PathVariable UUID jobCardId) {
-        log.info("Request to get mini job cards for job card: {}", jobCardId);
+        try {
+            log.info("Request to get mini job cards for job card: {}", jobCardId);
 
-        List<MiniJobCardResponse> miniJobCards = miniJobCardService.getMiniJobCardsByJobCard(jobCardId);
-        ApiResponse<List<MiniJobCardResponse>> response = ApiResponse.success(
-                "Mini job cards retrieved successfully", miniJobCards);
+            List<MiniJobCardResponse> miniJobCards = miniJobCardService.getMiniJobCardsByJobCard(jobCardId);
+            ApiResponse<List<MiniJobCardResponse>> response = ApiResponse.success(
+                    "Mini job cards retrieved successfully", miniJobCards);
 
-        return ResponseEntity.ok(response);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            log.error("Job card not found with ID: {}", jobCardId, e);
+            ApiResponse<List<MiniJobCardResponse>> response = ApiResponse.error("Job card not found", null);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+        } catch (Exception e) {
+            log.error("Error retrieving mini job cards for job card: {}", jobCardId, e);
+            ApiResponse<List<MiniJobCardResponse>> response = ApiResponse.error(
+                    "Failed to retrieve mini job cards for job card", null);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
     }
 
     @GetMapping("/status/{status}")
     public ResponseEntity<ApiResponse<List<MiniJobCardResponse>>> getMiniJobCardsByStatus(@PathVariable JobStatus status) {
-        log.info("Request to get mini job cards by status: {}", status);
+        try {
+            log.info("Request to get mini job cards by status: {}", status);
 
-        List<MiniJobCardResponse> miniJobCards = miniJobCardService.getMiniJobCardsByStatus(status);
-        ApiResponse<List<MiniJobCardResponse>> response = ApiResponse.success(
-                "Mini job cards retrieved successfully", miniJobCards);
+            List<MiniJobCardResponse> miniJobCards = miniJobCardService.getMiniJobCardsByStatus(status);
+            ApiResponse<List<MiniJobCardResponse>> response = ApiResponse.success(
+                    "Mini job cards retrieved successfully", miniJobCards);
 
-        return ResponseEntity.ok(response);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            log.error("Invalid job status: {}", status, e);
+            ApiResponse<List<MiniJobCardResponse>> response = ApiResponse.error("Invalid job status: " + e.getMessage(), null);
+            return ResponseEntity.badRequest().body(response);
+        } catch (Exception e) {
+            log.error("Error retrieving mini job cards by status: {}", status, e);
+            ApiResponse<List<MiniJobCardResponse>> response = ApiResponse.error(
+                    "Failed to retrieve mini job cards by status", null);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
     }
 
     @PutMapping("/{id}")
@@ -129,12 +206,27 @@ public class MiniJobCardController {
     public ResponseEntity<ApiResponse<MiniJobCardResponse>> updateMiniJobCard(
             @PathVariable UUID id,
             @Valid @RequestBody MiniJobCardUpdateRequest request) {
-        log.info("Request to update mini job card: {}", id);
+        try {
+            log.info("Request to update mini job card: {}", id);
 
-        MiniJobCardResponse updatedMiniJobCard = miniJobCardService.updateMiniJobCard(id, request);
-        ApiResponse<MiniJobCardResponse> response = ApiResponse.success(
-                "Mini job card updated successfully", updatedMiniJobCard);
+            MiniJobCardResponse updatedMiniJobCard = miniJobCardService.updateMiniJobCard(id, request);
+            ApiResponse<MiniJobCardResponse> response = ApiResponse.success(
+                    "Mini job card updated successfully", updatedMiniJobCard);
 
-        return ResponseEntity.ok(response);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            log.error("Invalid request for updating mini job card with ID: {}", id, e);
+            ApiResponse<MiniJobCardResponse> response = ApiResponse.error("Invalid request: " + e.getMessage(), null);
+            return ResponseEntity.badRequest().body(response);
+        } catch (RuntimeException e) {
+            log.error("Mini job card not found for update with ID: {}", id, e);
+            ApiResponse<MiniJobCardResponse> response = ApiResponse.error("Mini job card not found", null);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+        } catch (Exception e) {
+            log.error("Error updating mini job card with ID: {}", id, e);
+            ApiResponse<MiniJobCardResponse> response = ApiResponse.error(
+                    "Failed to update mini job card", null);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
     }
 }
