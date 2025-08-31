@@ -12,6 +12,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -19,6 +21,8 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Slf4j
 public class PasswordResetService {
+
+    private static final ZoneId SRI_LANKA_ZONE = ZoneId.of("Asia/Colombo");
 
     private final EmployeeRepository employeeRepository;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
@@ -28,7 +32,7 @@ public class PasswordResetService {
     @Value("${app.password-reset.token-expiration-hours:24}")
     private int tokenExpirationHours;
 
-    @Value("${app.frontend.reset-password-url:http://localhost:3000/reset-password}")
+    @Value("${app.frontend.reset-password-url:http://metropolitan-d-production.up.railway.app/reset-password}")
     private String resetPasswordUrl;
 
     @Transactional
@@ -53,10 +57,11 @@ public class PasswordResetService {
 
         // STEP 3: Generate new secure token
         String token = UUID.randomUUID().toString();
-        LocalDateTime expiresAt = LocalDateTime.now().plusHours(tokenExpirationHours);
+        LocalDateTime expiresAt = LocalDateTime.now(SRI_LANKA_ZONE).plusHours(tokenExpirationHours);
 
         // STEP 4: Save token to database
         PasswordResetToken resetToken = new PasswordResetToken(token, email, expiresAt);
+        resetToken.setTime(LocalTime.now(SRI_LANKA_ZONE).withNano(0));
         passwordResetTokenRepository.save(resetToken);
         log.info("Created new reset token for email: {} (expires at: {})", email, expiresAt);
 
@@ -150,9 +155,10 @@ public class PasswordResetService {
         }
 
         PasswordResetToken resetToken = tokenOpt.get();
+        LocalDateTime currentTime = LocalDateTime.now(SRI_LANKA_ZONE);
 
         // Check if token is expired
-        if (resetToken.isExpired()) {
+        if (resetToken.getExpiresAt().isBefore(currentTime)) {
             log.warn("Token verification failed: token expired for email: {}", resetToken.getEmail());
             return false;
         }
@@ -178,7 +184,7 @@ public class PasswordResetService {
     public void cleanupExpiredTokens() {
         log.info("Starting cleanup of expired password reset tokens");
 
-        int deletedCount = passwordResetTokenRepository.deleteExpiredTokens(LocalDateTime.now());
+        int deletedCount = passwordResetTokenRepository.deleteExpiredTokens(LocalDateTime.now(SRI_LANKA_ZONE));
         log.info("Cleanup completed: {} expired tokens removed", deletedCount);
     }
 
