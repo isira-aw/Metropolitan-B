@@ -14,7 +14,7 @@ public class TimeZoneUtil {
     }
 
     public static LocalTime getCurrentTime() {
-        return LocalTime.now(SRI_LANKA_ZONE);
+        return LocalTime.now(SRI_LANKA_ZONE).withNano(0);
     }
 
     public static LocalDateTime getCurrentDateTime() {

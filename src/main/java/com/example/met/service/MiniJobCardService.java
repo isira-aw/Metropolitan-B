@@ -12,12 +12,17 @@ import com.example.met.repository.MiniJobCardRepository;
 import com.example.met.util.TimeZoneUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataAccessException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.DateTimeException;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -32,174 +37,459 @@ public class MiniJobCardService {
     private final EmployeeService employeeService;
     private final LogRepository logRepository;
 
+    // Sri Lanka timezone constant
+    private static final ZoneId SRI_LANKA_ZONE = ZoneId.of("Asia/Colombo");
+
     @Transactional
     public MiniJobCard createMiniJobCard(MiniJobCard miniJobCard) {
-        // Ensure time is set if not provided
-        if (miniJobCard.getTime() == null) {
-            miniJobCard.setTime(TimeZoneUtil.getCurrentTime());
-        }
-        if (miniJobCard.getDate() == null) {
-            miniJobCard.setDate(TimeZoneUtil.getCurrentDate());
-        }
+        try {
+            log.info("Creating mini job card for job card: {} and employee: {}",
+                    miniJobCard.getJobCard().getJobCardId(),
+                    miniJobCard.getEmployee().getEmail());
 
-        MiniJobCard saved = miniJobCardRepository.save(miniJobCard);
-        log.info("Mini job card created with ID: {}", saved.getMiniJobCardId());
-        return saved;
+            // Ensure time is set if not provided with proper timezone handling
+            if (miniJobCard.getTime() == null) {
+                try {
+                    miniJobCard.setTime(getSafeCurrentTime());
+                } catch (DateTimeException e) {
+                    log.warn("Error setting current time, using fallback: {}", e.getMessage());
+                    miniJobCard.setTime(LocalTime.of(12, 0)); // Safe fallback
+                }
+            }
+
+            if (miniJobCard.getDate() == null) {
+                try {
+                    miniJobCard.setDate(LocalDate.now(SRI_LANKA_ZONE));
+                } catch (DateTimeException e) {
+                    log.warn("Error setting current date, using fallback: {}", e.getMessage());
+                    miniJobCard.setDate(LocalDate.now()); // System default fallback
+                }
+            }
+
+            // Validate required fields
+            validateMiniJobCard(miniJobCard);
+
+            MiniJobCard saved = miniJobCardRepository.save(miniJobCard);
+            log.info("Mini job card created with ID: {}", saved.getMiniJobCardId());
+            return saved;
+        } catch (DataIntegrityViolationException e) {
+            log.error("Data integrity violation while creating mini job card", e);
+            throw new IllegalArgumentException("Data integrity violation: " + e.getMessage(), e);
+        } catch (DataAccessException e) {
+            log.error("Database error while creating mini job card", e);
+            throw new RuntimeException("Database error occurred while creating mini job card", e);
+        } catch (Exception e) {
+            log.error("Unexpected error while creating mini job card", e);
+            throw new RuntimeException("Failed to create mini job card: " + e.getMessage(), e);
+        }
     }
 
     @Transactional
     public MiniJobCardResponse createMiniJobCardFromRequest(MiniJobCardRequest request) {
-        log.info("Creating mini job card for job card ID: {} and employee: {}",
-                request.getJobCardId(), request.getEmployeeEmail());
+        try {
+            log.info("Creating mini job card for job card ID: {} and employee: {}",
+                    request.getJobCardId(), request.getEmployeeEmail());
 
-        JobCard jobCard = jobCardRepository.findById(request.getJobCardId())
-                .orElseThrow(() -> new ResourceNotFoundException("Job Card not found with id: " + request.getJobCardId()));
-        Employee employee = employeeService.findByEmail(request.getEmployeeEmail());
+            // Validate request
+            validateMiniJobCardRequest(request);
 
-        MiniJobCard miniJobCard = new MiniJobCard();
-        miniJobCard.setJobCard(jobCard);
-        miniJobCard.setEmployee(employee);
-        miniJobCard.setDate(request.getDate());
-        miniJobCard.setLocation(request.getLocation());
+            JobCard jobCard = jobCardRepository.findById(request.getJobCardId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Job Card not found with id: " + request.getJobCardId()));
 
-        // FIX: Set time properly for Sri Lanka timezone
-        if (request.getTime() != null) {
-            miniJobCard.setTime(request.getTime());
-        } else {
-            miniJobCard.setTime(LocalTime.now(ZoneId.of("Asia/Colombo")));
+            Employee employee;
+            try {
+                employee = employeeService.findByEmail(request.getEmployeeEmail());
+            } catch (Exception e) {
+                log.error("Error finding employee with email: {}", request.getEmployeeEmail(), e);
+                throw new IllegalArgumentException("Employee not found with email: " + request.getEmployeeEmail(), e);
+            }
+
+            MiniJobCard miniJobCard = new MiniJobCard();
+            miniJobCard.setJobCard(jobCard);
+            miniJobCard.setEmployee(employee);
+            miniJobCard.setDate(request.getDate());
+            miniJobCard.setLocation(request.getLocation());
+
+            // Safe time setting with proper timezone handling
+            if (request.getTime() != null) {
+                try {
+                    miniJobCard.setTime(request.getTime());
+                } catch (DateTimeException e) {
+                    log.warn("Invalid time in request, using current time: {}", e.getMessage());
+                    miniJobCard.setTime(getSafeCurrentTime());
+                }
+            } else {
+                miniJobCard.setTime(getSafeCurrentTime());
+            }
+
+            miniJobCard.setStatus(JobStatus.PENDING);
+
+            miniJobCard = miniJobCardRepository.save(miniJobCard);
+            log.info("Mini job card created successfully with ID: {}", miniJobCard.getMiniJobCardId());
+            return convertToResponse(miniJobCard);
+        } catch (ResourceNotFoundException | IllegalArgumentException e) {
+            // Re-throw these as they are already properly handled
+            throw e;
+        } catch (DataIntegrityViolationException e) {
+            log.error("Data integrity violation while creating mini job card from request", e);
+            throw new IllegalArgumentException("Duplicate mini job card or invalid data references", e);
+        } catch (DataAccessException e) {
+            log.error("Database error while creating mini job card from request", e);
+            throw new RuntimeException("Database error occurred while creating mini job card", e);
+        } catch (Exception e) {
+            log.error("Unexpected error while creating mini job card from request", e);
+            throw new RuntimeException("Failed to create mini job card: " + e.getMessage(), e);
         }
-        miniJobCard.setStatus(JobStatus.PENDING);
-
-        miniJobCard = miniJobCardRepository.save(miniJobCard);
-        log.info("Mini job card created successfully with ID: {}", miniJobCard.getMiniJobCardId());
-        return convertToResponse(miniJobCard);
     }
 
     public MiniJobCard findById(UUID id) {
-        return miniJobCardRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Mini Job Card not found with id: " + id));
+        try {
+            if (id == null) {
+                throw new IllegalArgumentException("Mini job card ID cannot be null");
+            }
+
+            return miniJobCardRepository.findById(id)
+                    .orElseThrow(() -> new ResourceNotFoundException("Mini Job Card not found with id: " + id));
+        } catch (DataAccessException e) {
+            log.error("Database error while finding mini job card by ID: {}", id, e);
+            throw new RuntimeException("Database error occurred while retrieving mini job card", e);
+        }
     }
 
     public MiniJobCardResponse getMiniJobCardResponse(UUID id) {
-        MiniJobCard miniJobCard = findById(id);
-        return convertToResponse(miniJobCard);
+        try {
+            MiniJobCard miniJobCard = findById(id);
+            return convertToResponse(miniJobCard);
+        } catch (Exception e) {
+            log.error("Error converting mini job card to response for ID: {}", id, e);
+            throw new RuntimeException("Failed to retrieve mini job card response", e);
+        }
     }
 
     public List<MiniJobCardResponse> getAllMiniJobCards() {
-        log.info("Fetching all mini job cards");
-        return miniJobCardRepository.findAll()
-                .stream()
-                .map(this::convertToResponse)
-                .collect(Collectors.toList());
+        try {
+            log.info("Fetching all mini job cards");
+            return miniJobCardRepository.findAll()
+                    .stream()
+                    .map(this::convertToResponse)
+                    .collect(Collectors.toList());
+        } catch (DataAccessException e) {
+            log.error("Database error while fetching all mini job cards", e);
+            throw new RuntimeException("Database error occurred while retrieving mini job cards", e);
+        } catch (Exception e) {
+            log.error("Error fetching all mini job cards", e);
+            throw new RuntimeException("Failed to retrieve mini job cards", e);
+        }
     }
 
     public List<MiniJobCardResponse> getMiniJobCardsByEmployee(String email) {
-        log.info("Fetching mini job cards for employee: {}", email);
-        return miniJobCardRepository.findByEmployeeEmailOrderByCreatedAtDesc(email)
-                .stream()
-                .map(this::convertToResponse)
-                .collect(Collectors.toList());
+        try {
+            log.info("Fetching mini job cards for employee: {}", email);
+
+            if (email == null || email.trim().isEmpty()) {
+                throw new IllegalArgumentException("Employee email cannot be null or empty");
+            }
+
+            return miniJobCardRepository.findByEmployeeEmailOrderByCreatedAtDesc(email)
+                    .stream()
+                    .map(this::convertToResponse)
+                    .collect(Collectors.toList());
+        } catch (IllegalArgumentException e) {
+            throw e; // Re-throw validation errors
+        } catch (DataAccessException e) {
+            log.error("Database error while fetching mini job cards for employee: {}", email, e);
+            throw new RuntimeException("Database error occurred while retrieving mini job cards for employee", e);
+        } catch (Exception e) {
+            log.error("Error fetching mini job cards for employee: {}", email, e);
+            throw new RuntimeException("Failed to retrieve mini job cards for employee", e);
+        }
     }
 
     public List<MiniJobCardResponse> getMiniJobCardsByEmployeeAndDate(String email, LocalDate date) {
-        log.info("Fetching mini job cards for employee: {} on date: {}", email, date);
-        return miniJobCardRepository.findByEmployeeEmailAndDate(email, date)
-                .stream()
-                .map(this::convertToResponse)
-                .collect(Collectors.toList());
+        try {
+            log.info("Fetching mini job cards for employee: {} on date: {}", email, date);
+
+            if (email == null || email.trim().isEmpty()) {
+                throw new IllegalArgumentException("Employee email cannot be null or empty");
+            }
+
+            if (date == null) {
+                throw new IllegalArgumentException("Date cannot be null");
+            }
+
+            return miniJobCardRepository.findByEmployeeEmailAndDate(email, date)
+                    .stream()
+                    .map(this::convertToResponse)
+                    .collect(Collectors.toList());
+        } catch (IllegalArgumentException e) {
+            throw e; // Re-throw validation errors
+        } catch (DataAccessException e) {
+            log.error("Database error while fetching mini job cards for employee: {} and date: {}", email, date, e);
+            throw new RuntimeException("Database error occurred while retrieving mini job cards", e);
+        } catch (Exception e) {
+            log.error("Error fetching mini job cards for employee: {} and date: {}", email, date, e);
+            throw new RuntimeException("Failed to retrieve mini job cards for employee and date", e);
+        }
     }
 
     public List<MiniJobCardResponse> getMiniJobCardsByJobCard(UUID jobCardId) {
-        log.info("Fetching mini job cards for job card: {}", jobCardId);
-        return miniJobCardRepository.findByJobCardJobCardId(jobCardId)
-                .stream()
-                .map(this::convertToResponse)
-                .collect(Collectors.toList());
+        try {
+            log.info("Fetching mini job cards for job card: {}", jobCardId);
+
+            if (jobCardId == null) {
+                throw new IllegalArgumentException("Job card ID cannot be null");
+            }
+
+            return miniJobCardRepository.findByJobCardJobCardId(jobCardId)
+                    .stream()
+                    .map(this::convertToResponse)
+                    .collect(Collectors.toList());
+        } catch (IllegalArgumentException e) {
+            throw e; // Re-throw validation errors
+        } catch (DataAccessException e) {
+            log.error("Database error while fetching mini job cards for job card: {}", jobCardId, e);
+            throw new RuntimeException("Database error occurred while retrieving mini job cards for job card", e);
+        } catch (Exception e) {
+            log.error("Error fetching mini job cards for job card: {}", jobCardId, e);
+            throw new RuntimeException("Failed to retrieve mini job cards for job card", e);
+        }
     }
 
     public List<MiniJobCardResponse> getMiniJobCardsByStatus(JobStatus status) {
-        log.info("Fetching mini job cards by status: {}", status);
-        return miniJobCardRepository.findByStatus(status)
-                .stream()
-                .map(this::convertToResponse)
-                .collect(Collectors.toList());
+        try {
+            log.info("Fetching mini job cards by status: {}", status);
+
+            if (status == null) {
+                throw new IllegalArgumentException("Job status cannot be null");
+            }
+
+            return miniJobCardRepository.findByStatus(status)
+                    .stream()
+                    .map(this::convertToResponse)
+                    .collect(Collectors.toList());
+        } catch (IllegalArgumentException e) {
+            throw e; // Re-throw validation errors
+        } catch (DataAccessException e) {
+            log.error("Database error while fetching mini job cards by status: {}", status, e);
+            throw new RuntimeException("Database error occurred while retrieving mini job cards by status", e);
+        } catch (Exception e) {
+            log.error("Error fetching mini job cards by status: {}", status, e);
+            throw new RuntimeException("Failed to retrieve mini job cards by status", e);
+        }
     }
 
     @Transactional
     public MiniJobCardResponse updateMiniJobCard(UUID id, MiniJobCardUpdateRequest request) {
-        log.info("Updating mini job card with ID: {}", id);
+        try {
+            log.info("Updating mini job card with ID: {}", id);
 
-        MiniJobCard miniJobCard = findById(id);
+            if (id == null) {
+                throw new IllegalArgumentException("Mini job card ID cannot be null");
+            }
 
-        // Store old values for logging
-        JobStatus oldStatus = miniJobCard.getStatus();
-        String oldLocation = miniJobCard.getLocation();
+            if (request == null) {
+                throw new IllegalArgumentException("Update request cannot be null");
+            }
 
-        // Update fields
-        if (request.getStatus() != null) {
-            miniJobCard.setStatus(request.getStatus());
+            MiniJobCard miniJobCard = findById(id);
+
+            // Store old values for logging
+            JobStatus oldStatus = miniJobCard.getStatus();
+            String oldLocation = miniJobCard.getLocation();
+
+            // Update fields with validation
+            if (request.getStatus() != null) {
+                miniJobCard.setStatus(request.getStatus());
+            }
+
+            if (request.getDate() != null) {
+                try {
+                    miniJobCard.setDate(request.getDate());
+                } catch (DateTimeException e) {
+                    log.error("Invalid date in update request: {}", request.getDate(), e);
+                    throw new IllegalArgumentException("Invalid date format in request", e);
+                }
+            }
+
+            if (request.getLocation() != null) {
+                if (request.getLocation().length() > 255) { // Assuming max length
+                    throw new IllegalArgumentException("Location cannot exceed 255 characters");
+                }
+                miniJobCard.setLocation(request.getLocation());
+            }
+
+            if (request.getTime() != null) {
+                try {
+                    miniJobCard.setTime(request.getTime());
+                } catch (DateTimeException e) {
+                    log.warn("Invalid time in request, using current time: {}", e.getMessage());
+                    miniJobCard.setTime(getSafeCurrentTime());
+                }
+            } else {
+                // Set current time if not provided
+                miniJobCard.setTime(getSafeCurrentTime());
+            }
+
+            miniJobCard = miniJobCardRepository.save(miniJobCard);
+
+            // Create log entry safely
+            try {
+                createLogEntryDirectly(miniJobCard, oldStatus, oldLocation);
+            } catch (Exception e) {
+                log.error("Error creating log entry for mini job card update: {}", id, e);
+                // Don't fail the update because of logging error, just log it
+            }
+
+            log.info("Mini job card updated successfully with ID: {}", miniJobCard.getMiniJobCardId());
+            return convertToResponse(miniJobCard);
+        } catch (ResourceNotFoundException | IllegalArgumentException e) {
+            // Re-throw these as they are already properly handled
+            throw e;
+        } catch (DataIntegrityViolationException e) {
+            log.error("Data integrity violation while updating mini job card: {}", id, e);
+            throw new IllegalArgumentException("Data integrity violation during update", e);
+        } catch (DataAccessException e) {
+            log.error("Database error while updating mini job card: {}", id, e);
+            throw new RuntimeException("Database error occurred while updating mini job card", e);
+        } catch (Exception e) {
+            log.error("Unexpected error while updating mini job card: {}", id, e);
+            throw new RuntimeException("Failed to update mini job card: " + e.getMessage(), e);
         }
-        if (request.getDate() != null) {
-            miniJobCard.setDate(request.getDate());
-        }
-        if (request.getLocation() != null) {
-            miniJobCard.setLocation(request.getLocation());
-        }
-        if (request.getTime() != null) {
-            miniJobCard.setTime(request.getTime());
-        } else {
-            // Set current time if not provided
-            miniJobCard.setTime(TimeZoneUtil.getCurrentTime());
-        }
-
-        miniJobCard = miniJobCardRepository.save(miniJobCard);
-
-        // Create log entry directly
-        createLogEntryDirectly(miniJobCard, oldStatus, oldLocation);
-
-        log.info("Mini job card updated successfully with ID: {}", miniJobCard.getMiniJobCardId());
-        return convertToResponse(miniJobCard);
     }
 
     private void createLogEntryDirectly(MiniJobCard miniJobCard, JobStatus oldStatus, String oldLocation) {
-        Log log = new Log();
-        log.setEmployee(miniJobCard.getEmployee());
-        log.setAction("UPDATE_MINI_JOB_CARD");
-        log.setDate(LocalDate.now(ZoneId.of("Asia/Colombo")));
-        log.setTime(LocalTime.now(ZoneId.of("Asia/Colombo"))); // FIX: Use Sri Lanka timezone
-        log.setStatus("Updated from " + oldStatus.name() + " to " + miniJobCard.getStatus().name());
-        log.setLocation(miniJobCard.getLocation());
+        try {
+            Log log = new Log();
+            log.setEmployee(miniJobCard.getEmployee());
+            log.setAction("UPDATE_MINI_JOB_CARD");
 
-        logRepository.save(log);
+            // Safe date and time setting
+            try {
+                log.setDate(LocalDate.now(SRI_LANKA_ZONE));
+                log.setTime(getSafeCurrentTime());
+            } catch (DateTimeException e) {
+                log.setDate(LocalDate.now());
+                log.setTime(LocalTime.now().withNano(0)); // Remove nanoseconds
+            }
+
+            log.setStatus("Updated from " + oldStatus.name() + " to " + miniJobCard.getStatus().name());
+            log.setLocation(miniJobCard.getLocation());
+
+            logRepository.save(log);
+        } catch (Exception e) {
+            log.error("Failed to create log entry for mini job card update", e);
+            // Don't propagate this error as it's not critical for the main operation
+        }
     }
+
     private MiniJobCardResponse convertToResponse(MiniJobCard miniJobCard) {
-        MiniJobCardResponse response = new MiniJobCardResponse();
+        try {
+            if (miniJobCard == null) {
+                throw new IllegalArgumentException("Mini job card cannot be null");
+            }
 
-        // Basic mini job card info
-        response.setMiniJobCardId(miniJobCard.getMiniJobCardId());
-        response.setJobCardId(miniJobCard.getJobCard().getJobCardId());
-        response.setEmployeeEmail(miniJobCard.getEmployee().getEmail());
-        response.setEmployeeName(miniJobCard.getEmployee().getName());
-        response.setStatus(miniJobCard.getStatus());
-        response.setDate(miniJobCard.getDate());
-        response.setLocation(miniJobCard.getLocation());
-        response.setTime(miniJobCard.getTime());
-        response.setCreatedAt(miniJobCard.getCreatedAt());
-        response.setUpdatedAt(miniJobCard.getUpdatedAt());
+            MiniJobCardResponse response = new MiniJobCardResponse();
 
-        // Enhanced job card details
-        response.setJobType(miniJobCard.getJobCard().getJobType());
-        response.setEstimatedTime(miniJobCard.getJobCard().getEstimatedTime());
+            // Basic mini job card info
+            response.setMiniJobCardId(miniJobCard.getMiniJobCardId());
+            response.setJobCardId(miniJobCard.getJobCard().getJobCardId());
+            response.setEmployeeEmail(miniJobCard.getEmployee().getEmail());
+            response.setEmployeeName(miniJobCard.getEmployee().getName());
+            response.setStatus(miniJobCard.getStatus());
+            response.setDate(miniJobCard.getDate());
+            response.setLocation(miniJobCard.getLocation());
+            response.setTime(miniJobCard.getTime());
 
-        // Full generator details
-        Generator generator = miniJobCard.getJobCard().getGenerator();
-        response.setGeneratorId(generator.getGeneratorId());
-        response.setGeneratorName(generator.getName());
-        response.setGeneratorCapacity(generator.getCapacity());
-        response.setGeneratorContactNumber(generator.getContactNumber());
-        response.setGeneratorEmail(generator.getEmail());
-        response.setGeneratorDescription(generator.getDescription());
+            // Safe timestamp handling
+            try {
+                response.setCreatedAt(miniJobCard.getCreatedAt());
+                response.setUpdatedAt(miniJobCard.getUpdatedAt());
+            } catch (DateTimeException e) {
+                log.warn("Error setting timestamps in response, using current time: {}", e.getMessage());
+                LocalDateTime now = getSafeCurrentDateTime();
+                response.setCreatedAt(now);
+                response.setUpdatedAt(now);
+            }
 
-        return response;
+            // Enhanced job card details
+            response.setJobType(miniJobCard.getJobCard().getJobType());
+            response.setEstimatedTime(miniJobCard.getJobCard().getEstimatedTime());
+
+            // Full generator details
+            Generator generator = miniJobCard.getJobCard().getGenerator();
+            response.setGeneratorId(generator.getGeneratorId());
+            response.setGeneratorName(generator.getName());
+            response.setGeneratorCapacity(generator.getCapacity());
+            response.setGeneratorContactNumber(generator.getContactNumber());
+            response.setGeneratorEmail(generator.getEmail());
+            response.setGeneratorDescription(generator.getDescription());
+
+            return response;
+        } catch (Exception e) {
+            log.error("Error converting mini job card to response", e);
+            throw new RuntimeException("Failed to convert mini job card to response", e);
+        }
+    }
+
+    // Utility methods for safe time handling
+    private LocalTime getSafeCurrentTime() {
+        try {
+            return LocalTime.now(SRI_LANKA_ZONE).withNano(0); // Remove nanoseconds to prevent precision issues
+        } catch (DateTimeException e) {
+            log.warn("Error getting current time with timezone, using system default: {}", e.getMessage());
+            return LocalTime.now().withNano(0); // System default without nanoseconds
+        }
+    }
+
+    private LocalDateTime getSafeCurrentDateTime() {
+        try {
+            return LocalDateTime.now(SRI_LANKA_ZONE).withNano(0); // Remove nanoseconds
+        } catch (DateTimeException e) {
+            log.warn("Error getting current datetime with timezone, using system default: {}", e.getMessage());
+            return LocalDateTime.now().withNano(0); // System default without nanoseconds
+        }
+    }
+
+    private void validateMiniJobCard(MiniJobCard miniJobCard) {
+        if (miniJobCard == null) {
+            throw new IllegalArgumentException("Mini job card cannot be null");
+        }
+        if (miniJobCard.getJobCard() == null) {
+            throw new IllegalArgumentException("Job card reference cannot be null");
+        }
+        if (miniJobCard.getEmployee() == null) {
+            throw new IllegalArgumentException("Employee reference cannot be null");
+        }
+        if (miniJobCard.getDate() == null) {
+            throw new IllegalArgumentException("Date cannot be null");
+        }
+        if (miniJobCard.getStatus() == null) {
+            throw new IllegalArgumentException("Status cannot be null");
+        }
+    }
+
+    private void validateMiniJobCardRequest(MiniJobCardRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Request cannot be null");
+        }
+        if (request.getJobCardId() == null) {
+            throw new IllegalArgumentException("Job card ID cannot be null");
+        }
+        if (request.getEmployeeEmail() == null || request.getEmployeeEmail().trim().isEmpty()) {
+            throw new IllegalArgumentException("Employee email cannot be null or empty");
+        }
+        if (request.getDate() == null) {
+            throw new IllegalArgumentException("Date cannot be null");
+        }
+
+        // Email format validation
+        if (!request.getEmployeeEmail().contains("@") || !request.getEmployeeEmail().contains(".")) {
+            throw new IllegalArgumentException("Invalid email format");
+        }
+
+        // Location length validation
+        if (request.getLocation() != null && request.getLocation().length() > 255) {
+            throw new IllegalArgumentException("Location cannot exceed 255 characters");
+        }
     }
 }
