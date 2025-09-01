@@ -75,7 +75,7 @@ public class AuthController {
         log.info("Forgot password request received for email: {}", email);
 
         try {
-            // STEP 1: Check if email exists in database
+            // STEP 1: Check if email exists in database FIRST
             boolean emailExists = passwordResetService.isEmailRegistered(email);
             log.info("Email existence check for {}: {}", email, emailExists ? "EXISTS" : "NOT_FOUND");
 
@@ -89,22 +89,7 @@ public class AuthController {
                 return ResponseEntity.ok(response);
             }
 
-            // STEP 2: Get employee details for verification
-            Optional<Employee> employeeOpt = passwordResetService.getEmployeeForVerification(email);
-            if (employeeOpt.isEmpty()) {
-                log.error("Employee not found during forgot password process for email: {}", email);
-                ApiResponse<String> response = ApiResponse.success(
-                        "If the email address is registered with us, you will receive a password reset link shortly.",
-                        "Password reset request processed"
-                );
-                return ResponseEntity.ok(response);
-            }
-
-            Employee employee = employeeOpt.get();
-            log.info("Verified employee for password reset: {} - {} (Role: {})",
-                    employee.getEmail(), employee.getName(), employee.getRole());
-
-            // STEP 3: Initiate password reset (this will send the email)
+            // STEP 2: Process reset for existing email (this will send the email)
             String result = passwordResetService.initiatePasswordReset(email);
 
             ApiResponse<String> response = ApiResponse.success(result, "Password reset email sent");

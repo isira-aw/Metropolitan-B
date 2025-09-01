@@ -8,6 +8,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 
 @Service
@@ -15,22 +16,15 @@ import java.time.format.DateTimeFormatter;
 @Slf4j
 public class EmailService {
 
+    private static final ZoneId SRI_LANKA_ZONE = ZoneId.of("Asia/Colombo");
+
     private final JavaMailSender mailSender;
 
-    @Value("${app.mail.from:noreply@metropolitan.com}")
+    @Value("${app.mail.from:noreply@yourcompany.com}")
     private String fromEmail;
 
-    @Value("${app.mail.password-reset.subject:Password Reset Request - Metropolitan System}")
+    @Value("${app.mail.password-reset.subject:Password Reset Request - MET System}")
     private String passwordResetSubject;
-
-    @Value("${app.mail.password-reset-confirmation.subject:Password Reset Confirmation - Metropolitan System}")
-    private String passwordResetConfirmationSubject;
-
-    @Value("${app.company.name:Metropolitan}")
-    private String companyName;
-
-    @Value("${app.company.support-email:support@metropolitan.com}")
-    private String supportEmail;
 
     public void sendPasswordResetEmail(String name, String toEmail, String resetLink) {
         try {
@@ -41,7 +35,7 @@ public class EmailService {
             message.setTo(toEmail);
             message.setSubject(passwordResetSubject);
 
-            String emailBody = buildPasswordResetEmailBody(name, resetLink);
+            String emailBody = buildPasswordResetEmailBody(name, resetLink, toEmail);
             message.setText(emailBody);
 
             mailSender.send(message);
@@ -60,7 +54,7 @@ public class EmailService {
             SimpleMailMessage message = new SimpleMailMessage();
             message.setFrom(fromEmail);
             message.setTo(toEmail);
-            message.setSubject(passwordResetConfirmationSubject);
+            message.setSubject("Password Reset Confirmation - MET System");
 
             String emailBody = buildPasswordResetConfirmationEmailBody(name);
             message.setText(emailBody);
@@ -74,13 +68,14 @@ public class EmailService {
         }
     }
 
-    private String buildPasswordResetEmailBody(String name, String resetLink) {
-        String currentDateTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("MMM dd, yyyy 'at' HH:mm"));
+    private String buildPasswordResetEmailBody(String name, String resetLink, String toEmail) {
+        String currentDateTime = LocalDateTime.now(SRI_LANKA_ZONE)
+                .format(DateTimeFormatter.ofPattern("MMM dd, yyyy 'at' HH:mm"));
 
         return String.format("""
             Dear %s,
             
-            You have requested to reset your password for your %s account.
+            You have requested to reset your password for your MET System account.
             
             If you made this request, please click on the link below to reset your password:
             
@@ -88,61 +83,52 @@ public class EmailService {
             
             This link will expire in 24 hours for security reasons.
             
-            If you did not request this password reset, please ignore this email and your password will remain unchanged. For your security, you may also want to contact our support team at %s.
-            
             Request Details:
-            - Requested on: %s
+            - Requested on: %s (Sri Lanka Time)
             - Your email: %s
             
             Important Security Notes:
             • Never share this link with anyone
-            • %s will never ask for your password via email
-            • If you have any concerns, contact us immediately
+            • MET System will never ask for your password via email
+            • If you have any concerns, contact support immediately
+            
+            If you did not request this password reset, please ignore this email and your password will remain unchanged.
             
             Best regards,
-            The %s Security Team
+            The MET System Team
             
             ---
             This is an automated email. Please do not reply to this message.
-            For support, contact us at: %s
-            """,
-                name, companyName, resetLink, supportEmail, currentDateTime,
-                "your-email-address", companyName, companyName, supportEmail);
+            """, name, resetLink, currentDateTime, toEmail);
     }
 
     private String buildPasswordResetConfirmationEmailBody(String name) {
-        String currentDateTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("MMM dd, yyyy 'at' HH:mm"));
+        String currentDateTime = LocalDateTime.now(SRI_LANKA_ZONE)
+                .format(DateTimeFormatter.ofPattern("MMM dd, yyyy 'at' HH:mm"));
 
         return String.format("""
             Dear %s,
             
-            This email confirms that your password for your %s account has been successfully reset.
+            This email confirms that your password for your MET System account has been successfully reset.
             
             Password Change Details:
-            - Changed on: %s
-            - Account: %s
+            - Changed on: %s (Sri Lanka Time)
             
-            If you did not make this change, please contact our support team immediately at %s.
+            If you did not make this change, please contact support immediately.
             
             For your security, we recommend:
             • Using a strong, unique password
             • Not sharing your login credentials with anyone
-            • Logging out of your account when using shared computers
+            • Logging out when using shared computers
             
             Thank you for keeping your account secure.
             
             Best regards,
-            The %s Security Team
-            
-            ---
-            This is an automated email. Please do not reply to this message.
-            For support, contact us at: %s
-            """,
-                name, companyName, currentDateTime, "your-account",
-                supportEmail, companyName, supportEmail);
+            The MET System Team
+            """, name, currentDateTime);
     }
 
-    // Method to send test email for verification
+    // Method to send test email for verification (optional)
     public void sendTestEmail(String toEmail) {
         try {
             log.info("Sending test email to: {}", toEmail);
@@ -150,7 +136,7 @@ public class EmailService {
             SimpleMailMessage message = new SimpleMailMessage();
             message.setFrom(fromEmail);
             message.setTo(toEmail);
-            message.setSubject("Test Email - " + companyName + " System");
+            message.setSubject("Test Email - MET System");
             message.setText("This is a test email to verify email configuration is working properly.");
 
             mailSender.send(message);

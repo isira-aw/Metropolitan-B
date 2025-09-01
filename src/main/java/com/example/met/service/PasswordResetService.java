@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -19,6 +20,8 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Slf4j
 public class PasswordResetService {
+
+    private static final ZoneId SRI_LANKA_ZONE = ZoneId.of("Asia/Colombo");
 
     private final EmployeeRepository employeeRepository;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
@@ -28,32 +31,37 @@ public class PasswordResetService {
     @Value("${app.password-reset.token-expiration-hours:24}")
     private int tokenExpirationHours;
 
-    @Value("${app.frontend.reset-password-url:http://localhost:3000/reset-password}")
+    @Value("${app.frontend.reset-password-url:https://metropolitan-d-production.up.railway.app/reset-password}")
     private String resetPasswordUrl;
+
+    // Method to check if email exists in database (called FIRST)
+    public boolean isEmailRegistered(String email) {
+        boolean exists = employeeRepository.existsById(email);
+        log.info("Email registration check for {}: {}", email, exists ? "EXISTS" : "NOT_FOUND");
+        return exists;
+    }
 
     @Transactional
     public String initiatePasswordReset(String email) {
         log.info("Initiating password reset for email: {}", email);
 
-        // STEP 1: Check if employee exists in database
+        // STEP 1: Double-check employee exists (should already be verified)
         Optional<Employee> employeeOpt = employeeRepository.findById(email);
         if (employeeOpt.isEmpty()) {
             log.warn("Password reset requested for non-existent email: {}", email);
-            // For security reasons, don't reveal that email doesn't exist
-            // Return success message but don't send email
             return "If the email address is registered with us, you will receive a password reset link shortly.";
         }
 
         Employee employee = employeeOpt.get();
         log.info("Employee found in database: {} - {}", employee.getEmail(), employee.getName());
 
-        // STEP 2: Delete any existing tokens for this email to ensure only one active token
+        // STEP 2: Delete any existing tokens for this email
         passwordResetTokenRepository.deleteByEmail(email);
         log.info("Cleared any existing reset tokens for email: {}", email);
 
-        // STEP 3: Generate new secure token
+        // STEP 3: Generate new secure token with Sri Lankan time
         String token = UUID.randomUUID().toString();
-        LocalDateTime expiresAt = LocalDateTime.now().plusHours(tokenExpirationHours);
+        LocalDateTime expiresAt = LocalDateTime.now(SRI_LANKA_ZONE).plusHours(tokenExpirationHours);
 
         // STEP 4: Save token to database
         PasswordResetToken resetToken = new PasswordResetToken(token, email, expiresAt);
@@ -64,7 +72,7 @@ public class PasswordResetService {
         String resetLink = resetPasswordUrl + "?token=" + token;
         log.info("Generated reset link for email: {}", email);
 
-        // STEP 6: Send email only if employee exists
+        // STEP 6: Send email
         try {
             emailService.sendPasswordResetEmail(employee.getName(), email, resetLink);
             log.info("Password reset email sent successfully to: {}", email);
@@ -92,8 +100,9 @@ public class PasswordResetService {
         PasswordResetToken resetToken = tokenOpt.get();
         log.info("Found reset token for email: {}", resetToken.getEmail());
 
-        // STEP 2: Check if token is expired
-        if (resetToken.isExpired()) {
+        // STEP 2: Check if token is expired using Sri Lankan time
+        LocalDateTime currentTime = LocalDateTime.now(SRI_LANKA_ZONE);
+        if (resetToken.getExpiresAt().isBefore(currentTime)) {
             log.warn("Password reset attempted with expired token for email: {}", resetToken.getEmail());
             passwordResetTokenRepository.delete(resetToken);
             throw new IllegalArgumentException("Reset token has expired. Please request a new password reset.");
@@ -105,7 +114,7 @@ public class PasswordResetService {
             throw new IllegalArgumentException("Reset token has already been used. Please request a new password reset.");
         }
 
-        // STEP 4: Verify employee still exists (double check)
+        // STEP 4: Verify employee still exists
         Optional<Employee> employeeOpt = employeeRepository.findById(resetToken.getEmail());
         if (employeeOpt.isEmpty()) {
             log.error("Employee not found for email during password reset: {}", resetToken.getEmail());
@@ -122,7 +131,7 @@ public class PasswordResetService {
         employeeRepository.save(employee);
         log.info("Password updated successfully for employee: {}", employee.getEmail());
 
-        // STEP 6: Mark token as used and save
+        // STEP 6: Mark token as used
         resetToken.setUsed(true);
         passwordResetTokenRepository.save(resetToken);
         log.info("Reset token marked as used for email: {}", employee.getEmail());
@@ -150,9 +159,10 @@ public class PasswordResetService {
         }
 
         PasswordResetToken resetToken = tokenOpt.get();
+        LocalDateTime currentTime = LocalDateTime.now(SRI_LANKA_ZONE);
 
         // Check if token is expired
-        if (resetToken.isExpired()) {
+        if (resetToken.getExpiresAt().isBefore(currentTime)) {
             log.warn("Token verification failed: token expired for email: {}", resetToken.getEmail());
             return false;
         }
@@ -178,15 +188,8 @@ public class PasswordResetService {
     public void cleanupExpiredTokens() {
         log.info("Starting cleanup of expired password reset tokens");
 
-        int deletedCount = passwordResetTokenRepository.deleteExpiredTokens(LocalDateTime.now());
+        int deletedCount = passwordResetTokenRepository.deleteExpiredTokens(LocalDateTime.now(SRI_LANKA_ZONE));
         log.info("Cleanup completed: {} expired tokens removed", deletedCount);
-    }
-
-    // Additional method to check if email exists without creating token
-    public boolean isEmailRegistered(String email) {
-        boolean exists = employeeRepository.existsById(email);
-        log.info("Email registration check for {}: {}", email, exists ? "EXISTS" : "NOT_FOUND");
-        return exists;
     }
 
     // Method to get employee details for verification (without sensitive data)
