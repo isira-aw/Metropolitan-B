@@ -76,16 +76,12 @@ public class GenEmailService {
             emailEntity.setStatus(EmailStatus.SENT);
             emailEntity.setSentAt(LocalDateTime.now());
 
-            // Reduced logging - only in debug mode
-            if (log.isDebugEnabled()) {
-                log.debug("Job card email sent to {} for card {}",
-                        request.getRecipientEmail(), request.getJobCardId());
-            }
+            log.info("Email sent successfully to {} for job card {}",
+                    request.getRecipientEmail(), request.getJobCardId());
 
         } catch (Exception e) {
-            // Keep error logging but simplified
-            log.error("Email send failed for job card {}: {}",
-                    request.getJobCardId(), e.getMessage());
+            log.error("Failed to send email to {} for job card {}",
+                    request.getRecipientEmail(), request.getJobCardId(), e);
             emailEntity.setStatus(EmailStatus.FAILED);
         }
 
