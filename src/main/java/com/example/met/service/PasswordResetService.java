@@ -32,7 +32,7 @@ public class PasswordResetService {
     @Value("${app.password-reset.token-expiration-hours:24}")
     private int tokenExpirationHours;
 
-    @Value("${app.frontend.reset-password-url:http://metropolitan-d-production.up.railway.app/reset-password}")
+    @Value("${app.frontend.reset-password-url:https://metropolitan-d-production.up.railway.app/reset-password}")
     private String resetPasswordUrl;
 
     @Transactional
