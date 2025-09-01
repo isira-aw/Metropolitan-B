@@ -28,23 +28,24 @@ public class PasswordResetService {
     @Value("${app.password-reset.token-expiration-hours:24}")
     private int tokenExpirationHours;
 
-    @Value("${app.frontend.reset-password-url:http://localhost:5173/reset-password}")
+    @Value("${app.frontend.reset-password-url:http://localhost:3000/reset-password}")
     private String resetPasswordUrl;
 
     @Transactional
     public String initiatePasswordReset(String email) {
-        // NO LOGGING FOR NORMAL FLOW - ONLY ERRORS
-
         // STEP 1: Check if employee exists in database
         Optional<Employee> employeeOpt = employeeRepository.findById(email);
         if (employeeOpt.isEmpty()) {
+
             return "If the email address is registered with us, you will receive a password reset link shortly.";
         }
 
         Employee employee = employeeOpt.get();
+        log.info("Employee found in database: {} - {}", employee.getEmail(), employee.getName());
 
         // STEP 2: Delete any existing tokens for this email
         passwordResetTokenRepository.deleteByEmail(email);
+
 
         // STEP 3: Generate new secure token
         String token = UUID.randomUUID().toString();
@@ -56,13 +57,16 @@ public class PasswordResetService {
 
         // STEP 5: Construct reset link
         String resetLink = resetPasswordUrl + "?token=" + token;
+        log.info("Generated reset link for email: {}", email);
 
         // STEP 6: Send email
         try {
             emailService.sendPasswordResetEmail(employee.getName(), email, resetLink);
+
         } catch (Exception e) {
             // ONLY LOG CRITICAL ERRORS
             log.error("Email send failed for {}", email);
+
             passwordResetTokenRepository.delete(resetToken);
             throw new RuntimeException("Failed to send password reset email. Please try again later.");
         }
@@ -72,35 +76,40 @@ public class PasswordResetService {
 
     @Transactional
     public String resetPassword(String token, String newPassword) {
-        // NO LOGGING FOR NORMAL FLOW
 
         // STEP 1: Validate token exists
         Optional<PasswordResetToken> tokenOpt = passwordResetTokenRepository.findByToken(token);
         if (tokenOpt.isEmpty()) {
+            log.warn("Password reset attempted with invalid token");
             throw new IllegalArgumentException("Invalid reset token");
         }
 
         PasswordResetToken resetToken = tokenOpt.get();
+        log.info("Found reset token for email: {}", resetToken.getEmail());
 
         // STEP 2: Check if token is expired
         if (resetToken.isExpired()) {
+            log.warn("Password reset attempted with expired token for email: {}", resetToken.getEmail());
             passwordResetTokenRepository.delete(resetToken);
             throw new IllegalArgumentException("Reset token has expired. Please request a new password reset.");
         }
 
         // STEP 3: Check if token is already used
         if (resetToken.isUsed()) {
+            log.warn("Password reset attempted with already used token for email: {}", resetToken.getEmail());
             throw new IllegalArgumentException("Reset token has already been used. Please request a new password reset.");
         }
 
         // STEP 4: Verify employee still exists
         Optional<Employee> employeeOpt = employeeRepository.findById(resetToken.getEmail());
         if (employeeOpt.isEmpty()) {
+            log.error("Employee not found for email during password reset: {}", resetToken.getEmail());
             passwordResetTokenRepository.delete(resetToken);
             throw new IllegalArgumentException("Employee account not found");
         }
 
         Employee employee = employeeOpt.get();
+        log.info("Verified employee exists: {} - {}", employee.getEmail(), employee.getName());
 
         // STEP 5: Update password
         String encodedPassword = passwordEncoder.encode(newPassword);
@@ -110,54 +119,64 @@ public class PasswordResetService {
         // STEP 6: Mark token as used
         resetToken.setUsed(true);
         passwordResetTokenRepository.save(resetToken);
+        log.info("Reset token marked as used for email: {}", employee.getEmail());
 
         // STEP 7: Send confirmation email
         try {
             emailService.sendPasswordResetConfirmationEmail(employee.getName(), employee.getEmail());
+            log.info("Password reset confirmation email sent to: {}", employee.getEmail());
         } catch (Exception e) {
             // ONLY LOG CRITICAL EMAIL FAILURES
             log.error("Confirmation email failed for {}", employee.getEmail());
         }
 
+
         return "Password has been reset successfully. You can now login with your new password.";
     }
 
     public boolean isValidToken(String token) {
-        // NO LOGGING FOR NORMAL VALIDATION
+
 
         Optional<PasswordResetToken> tokenOpt = passwordResetTokenRepository.findByToken(token);
         if (tokenOpt.isEmpty()) {
+            log.warn("Token verification failed: token not found");
             return false;
         }
 
         PasswordResetToken resetToken = tokenOpt.get();
 
         if (resetToken.isExpired() || resetToken.isUsed()) {
+
             return false;
         }
 
         Optional<Employee> employeeOpt = employeeRepository.findById(resetToken.getEmail());
+
         return employeeOpt.isPresent();
+
     }
 
     @Transactional
     public void cleanupExpiredTokens() {
-        // NO LOGGING FOR ROUTINE CLEANUP
+
         int deletedCount = passwordResetTokenRepository.deleteExpiredTokens(LocalDateTime.now());
 
         // Only log if there's an unusually high number of expired tokens (potential issue)
         if (deletedCount > 50) {
             log.warn("High number of expired tokens cleaned: {}", deletedCount);
         }
+
     }
 
     public boolean isEmailRegistered(String email) {
-        // NO LOGGING FOR EMAIL CHECKS
+
         return employeeRepository.existsById(email);
+
     }
 
     public Optional<Employee> getEmployeeForVerification(String email) {
-        // NO LOGGING FOR VERIFICATION
+
         return employeeRepository.findById(email);
+
     }
 }
