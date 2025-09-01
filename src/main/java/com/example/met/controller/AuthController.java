@@ -30,18 +30,13 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<LoginResponse>> login(@Valid @RequestBody LoginRequest request) {
-        // Only log in debug mode for normal operations
-        if (log.isDebugEnabled()) {
-            log.debug("Login attempt for email: {}", request.getEmail());
-        }
-
         try {
             LoginResponse loginResponse = authService.login(request);
             ApiResponse<LoginResponse> response = ApiResponse.success("Login successful", loginResponse);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            // Keep error logging but make it less verbose
-            log.warn("Login failed for email: {}: {}", request.getEmail(), e.getMessage());
+            // ONLY LOG CRITICAL AUTHENTICATION FAILURES
+            log.error("Auth fail: {}", request.getEmail());
             ApiResponse<LoginResponse> response = ApiResponse.error("Invalid email or password");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
         }
@@ -49,10 +44,7 @@ public class AuthController {
 
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<EmployeeResponse>> register(@Valid @RequestBody RegisterRequest request) {
-        // Reduced logging frequency
-        if (log.isDebugEnabled()) {
-            log.debug("Registration attempt for email: {}", request.getEmail());
-        }
+        // ZERO LOGGING FOR PRODUCTION
 
         try {
             Employee employee = authService.register(request);
@@ -68,7 +60,8 @@ public class AuthController {
             ApiResponse<EmployeeResponse> response = ApiResponse.success("Registration successful", employeeResponse);
             return new ResponseEntity<>(response, HttpStatus.CREATED);
         } catch (Exception e) {
-            log.warn("Registration failed for email: {}: {}", request.getEmail(), e.getMessage());
+            // MINIMAL ERROR LOGGING
+            log.error("Registration fail: {}", request.getEmail());
             ApiResponse<EmployeeResponse> response = ApiResponse.error("Registration failed: " + e.getMessage());
             return ResponseEntity.badRequest().body(response);
         }
@@ -78,17 +71,12 @@ public class AuthController {
     public ResponseEntity<ApiResponse<String>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
         String email = request.getEmail().trim().toLowerCase();
 
-        // Reduce logging - only debug level for normal flow
-        if (log.isDebugEnabled()) {
-            log.debug("Password reset request for: {}", email);
-        }
+        // ABSOLUTELY NO LOGGING FOR NORMAL PASSWORD RESET FLOW
 
         try {
-            // STEP 1: Check if email exists in database
             boolean emailExists = passwordResetService.isEmailRegistered(email);
 
             if (!emailExists) {
-                // Removed detailed logging for security reasons
                 ApiResponse<String> response = ApiResponse.success(
                         "If the email address is registered with us, you will receive a password reset link shortly.",
                         "Password reset request processed"
@@ -96,7 +84,6 @@ public class AuthController {
                 return ResponseEntity.ok(response);
             }
 
-            // STEP 2: Get employee details for verification
             Optional<Employee> employeeOpt = passwordResetService.getEmployeeForVerification(email);
             if (employeeOpt.isEmpty()) {
                 ApiResponse<String> response = ApiResponse.success(
@@ -106,20 +93,13 @@ public class AuthController {
                 return ResponseEntity.ok(response);
             }
 
-            Employee employee = employeeOpt.get();
-            // Reduced logging detail
-            if (log.isDebugEnabled()) {
-                log.debug("Processing password reset for verified employee: {}", employee.getEmail());
-            }
-
-            // STEP 3: Initiate password reset (this will send the email)
             String result = passwordResetService.initiatePasswordReset(email);
-
             ApiResponse<String> response = ApiResponse.success(result, "Password reset email sent");
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            log.error("Password reset error for: {}: {}", email, e.getMessage());
+            // ONLY LOG SYSTEM ERRORS
+            log.error("Password reset system error");
             ApiResponse<String> response = ApiResponse.error("Failed to process password reset request. Please try again later.");
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
@@ -127,10 +107,7 @@ public class AuthController {
 
     @PostMapping("/reset-password")
     public ResponseEntity<ApiResponse<String>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
-        // Reduced initial logging
-        if (log.isDebugEnabled()) {
-            log.debug("Password reset attempt with token");
-        }
+        // NO LOGGING FOR NORMAL FLOW
 
         try {
             // Validate that passwords match
@@ -155,12 +132,10 @@ public class AuthController {
             return ResponseEntity.ok(response);
 
         } catch (IllegalArgumentException e) {
-            // Simplified error logging
-            log.warn("Invalid password reset request: {}", e.getMessage());
             ApiResponse<String> response = ApiResponse.error(e.getMessage());
             return ResponseEntity.badRequest().body(response);
         } catch (Exception e) {
-            log.error("Password reset error: {}", e.getMessage());
+            log.error("Password reset system error");
             ApiResponse<String> response = ApiResponse.error("Failed to reset password. Please try again later.");
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
@@ -178,13 +153,12 @@ public class AuthController {
                 return ResponseEntity.badRequest().body(response);
             }
         } catch (Exception e) {
-            log.error("Token verification error: {}", e.getMessage());
+            log.error("Token verification system error");
             ApiResponse<String> response = ApiResponse.error("Failed to verify token. Please try again.");
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
 
-    // Additional endpoint to check if email exists (optional, for frontend validation)
     @PostMapping("/check-email")
     public ResponseEntity<ApiResponse<Boolean>> checkEmailExists(@RequestBody ForgotPasswordRequest request) {
         String email = request.getEmail().trim().toLowerCase();
@@ -194,7 +168,7 @@ public class AuthController {
             ApiResponse<Boolean> response = ApiResponse.success("Email check completed", exists);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            log.error("Email check error for {}: {}", email, e.getMessage());
+            log.error("Email check system error");
             ApiResponse<Boolean> response = ApiResponse.error("Failed to check email");
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
