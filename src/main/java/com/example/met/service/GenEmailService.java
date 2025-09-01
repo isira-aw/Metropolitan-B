@@ -8,7 +8,6 @@ import com.example.met.enums.EmailStatus;
 import com.example.met.repository.EmailRepository;
 import com.example.met.repository.JobCardRepository;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -24,7 +23,6 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class GenEmailService {
 
     private final EmailRepository emailRepository;
@@ -76,12 +74,7 @@ public class GenEmailService {
             emailEntity.setStatus(EmailStatus.SENT);
             emailEntity.setSentAt(LocalDateTime.now());
 
-            log.info("Email sent successfully to {} for job card {}",
-                    request.getRecipientEmail(), request.getJobCardId());
-
         } catch (Exception e) {
-            log.error("Failed to send email to {} for job card {}",
-                    request.getRecipientEmail(), request.getJobCardId(), e);
             emailEntity.setStatus(EmailStatus.FAILED);
         }
 
@@ -100,7 +93,7 @@ public class GenEmailService {
 
     private EmailResponse mapToEmailResponse(EmailEntity entity) {
         return EmailResponse.builder()
-                .emailId(entity.getEmailId())
+                .id(entity.getEmailId()) // Use 'id' instead of 'emailId'
                 .jobCardId(entity.getJobCardId())
                 .recipientEmail(entity.getRecipientEmail())
                 .recipientName(entity.getRecipientName())
