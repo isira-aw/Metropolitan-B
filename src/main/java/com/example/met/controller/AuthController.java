@@ -69,13 +69,16 @@ public class AuthController {
             return ResponseEntity.badRequest().body(response);
         }
     }
+
     @PostMapping("/forgot-password")
     public ResponseEntity<ApiResponse<String>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
         String email = request.getEmail().trim().toLowerCase();
         log.info("Forgot password request received for email: {}", email);
 
         try {
-            // STEP 1: Check if email exists in database FIRST
+
+            // STEP 1: Check if email exists in database
+
             boolean emailExists = passwordResetService.isEmailRegistered(email);
             log.info("Email existence check for {}: {}", email, emailExists ? "EXISTS" : "NOT_FOUND");
 
@@ -89,7 +92,22 @@ public class AuthController {
                 return ResponseEntity.ok(response);
             }
 
-            // STEP 2: Process reset for existing email (this will send the email)
+
+            // STEP 2: Get employee details for verification
+            Optional<Employee> employeeOpt = passwordResetService.getEmployeeForVerification(email);
+            if (employeeOpt.isEmpty()) {
+                log.error("Employee not found during forgot password process for email: {}", email);
+                ApiResponse<String> response = ApiResponse.success(
+                        "If the email address is registered with us, you will receive a password reset link shortly.",
+                        "Password reset request processed"
+                );
+                return ResponseEntity.ok(response);
+            }
+
+            Employee employee = employeeOpt.get();
+            log.info("Verified employee for password reset: {} - {} (Role: {})",
+                    employee.getEmail(), employee.getName(), employee.getRole());
+
             String result = passwordResetService.initiatePasswordReset(email);
 
             ApiResponse<String> response = ApiResponse.success(result, "Password reset email sent");
@@ -99,6 +117,46 @@ public class AuthController {
         } catch (Exception e) {
             log.error("Error processing forgot password request for email: {}", email, e);
             ApiResponse<String> response = ApiResponse.error("Failed to process password reset request. Please try again later.");
+        }
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<ApiResponse<String>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        log.info("Reset password request received with token");
+
+        try {
+            // Validate that passwords match
+            if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+                log.warn("Password reset failed: passwords do not match");
+                ApiResponse<String> response = ApiResponse.error("Passwords do not match");
+                return ResponseEntity.badRequest().body(response);
+            }
+
+            // Validate password strength
+            if (request.getNewPassword().length() < 6) {
+                log.warn("Password reset failed: password too short");
+                ApiResponse<String> response = ApiResponse.error("Password must be at least 6 characters long");
+                return ResponseEntity.badRequest().body(response);
+            }
+
+            if (request.getNewPassword().length() > 20) {
+                log.warn("Password reset failed: password too long");
+                ApiResponse<String> response = ApiResponse.error("Password must be less than 20 characters long");
+                return ResponseEntity.badRequest().body(response);
+            }
+
+            String result = passwordResetService.resetPassword(request.getToken(), request.getNewPassword());
+            ApiResponse<String> response = ApiResponse.success(result, "Password reset successful");
+            log.info("Password reset completed successfully");
+            return ResponseEntity.ok(response);
+
+        } catch (IllegalArgumentException e) {
+            log.warn("Password reset failed with invalid argument: {}", e.getMessage());
+            ApiResponse<String> response = ApiResponse.error(e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        } catch (Exception e) {
+            log.error("Error processing password reset", e);
+            ApiResponse<String> response = ApiResponse.error("Failed to reset password. Please try again later.");
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
