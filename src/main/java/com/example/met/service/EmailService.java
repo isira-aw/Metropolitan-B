@@ -34,7 +34,7 @@ public class EmailService {
 
     public void sendPasswordResetEmail(String name, String toEmail, String resetLink) {
         try {
-            log.info("Preparing to send password reset email to: {}", toEmail);
+            // Removed: log.info("Preparing to send password reset email to: {}", toEmail);
 
             SimpleMailMessage message = new SimpleMailMessage();
             message.setFrom(fromEmail);
@@ -45,9 +45,13 @@ public class EmailService {
             message.setText(emailBody);
 
             mailSender.send(message);
-            log.info("Password reset email sent successfully to: {}", toEmail);
+            // Only log successful sends, reduce frequency
+            if (log.isDebugEnabled()) {
+                log.debug("Password reset email sent to: {}", toEmail);
+            }
 
         } catch (Exception e) {
+            // Keep error logging as it's critical
             log.error("Failed to send password reset email to: {}", toEmail, e);
             throw new RuntimeException("Failed to send password reset email: " + e.getMessage(), e);
         }
@@ -55,7 +59,7 @@ public class EmailService {
 
     public void sendPasswordResetConfirmationEmail(String name, String toEmail) {
         try {
-            log.info("Preparing to send password reset confirmation email to: {}", toEmail);
+            // Removed: log.info("Preparing to send password reset confirmation email to: {}", toEmail);
 
             SimpleMailMessage message = new SimpleMailMessage();
             message.setFrom(fromEmail);
@@ -66,7 +70,10 @@ public class EmailService {
             message.setText(emailBody);
 
             mailSender.send(message);
-            log.info("Password reset confirmation email sent successfully to: {}", toEmail);
+            // Only log in debug mode
+            if (log.isDebugEnabled()) {
+                log.debug("Password reset confirmation email sent to: {}", toEmail);
+            }
 
         } catch (Exception e) {
             log.error("Failed to send password reset confirmation email to: {}", toEmail, e);
@@ -145,7 +152,7 @@ public class EmailService {
     // Method to send test email for verification
     public void sendTestEmail(String toEmail) {
         try {
-            log.info("Sending test email to: {}", toEmail);
+            // Removed: log.info("Sending test email to: {}", toEmail);
 
             SimpleMailMessage message = new SimpleMailMessage();
             message.setFrom(fromEmail);
@@ -154,7 +161,9 @@ public class EmailService {
             message.setText("This is a test email to verify email configuration is working properly.");
 
             mailSender.send(message);
-            log.info("Test email sent successfully to: {}", toEmail);
+            if (log.isDebugEnabled()) {
+                log.debug("Test email sent to: {}", toEmail);
+            }
 
         } catch (Exception e) {
             log.error("Failed to send test email to: {}", toEmail, e);
