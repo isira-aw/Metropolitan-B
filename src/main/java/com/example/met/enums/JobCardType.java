@@ -1,5 +1,7 @@
 package com.example.met.enums;
 
 public enum JobCardType {
-    SERVICE, REPAIR
+    SERVICE,
+    REPAIR,
+    VISIT
 }

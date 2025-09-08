@@ -2,6 +2,7 @@ package com.example.met.service;
 
 import com.example.met.dto.request.RepairJobCardRequest;
 import com.example.met.dto.request.ServiceJobCardRequest;
+import com.example.met.dto.request.VisitJobCardRequest;
 import com.example.met.dto.response.JobCardResponse;
 import com.example.met.entity.Employee;
 import com.example.met.entity.Generator;
@@ -133,6 +134,51 @@ public class JobCardService {
         }
     }
 
+    @Transactional
+    public JobCardResponse createVisitJobCard(VisitJobCardRequest request) {
+        try {
+            log.info("Creating visit job card for generator ID: {}", request.getGeneratorId());
+
+            // Validate request
+            validateVisitJobCardRequest(request);
+
+            Generator generator;
+            try {
+                generator = generatorService.findById(request.getGeneratorId());
+            } catch (Exception e) {
+                log.error("Error finding generator with ID: {}", request.getGeneratorId(), e);
+                throw new IllegalArgumentException("Generator not found with ID: " + request.getGeneratorId(), e);
+            }
+
+            JobCard jobCard = new JobCard();
+            jobCard.setGenerator(generator);
+            jobCard.setJobType(JobCardType.VISIT);
+            jobCard.setDate(request.getDate());
+            jobCard.setEstimatedTime(request.getEstimatedTime());
+            jobCard.setEmployeeEmails(request.getEmployeeEmails());
+
+            jobCard = jobCardRepository.save(jobCard);
+
+            // Create mini job cards directly here with error handling
+            createMiniJobCardsDirectly(jobCard, request.getEmployeeEmails());
+
+            log.info("Visit job card created successfully with ID: {}", jobCard.getJobCardId());
+            return convertToResponse(jobCard);
+        } catch (IllegalArgumentException e) {
+            // Re-throw validation errors
+            throw e;
+        } catch (DataIntegrityViolationException e) {
+            log.error("Data integrity violation while creating visit job card", e);
+            throw new IllegalArgumentException("Data integrity violation: duplicate or invalid references", e);
+        } catch (DataAccessException e) {
+            log.error("Database error while creating visit job card", e);
+            throw new RuntimeException("Database error occurred while creating visit job card", e);
+        } catch (Exception e) {
+            log.error("Unexpected error while creating visit job card for generator: {}", request.getGeneratorId(), e);
+            throw new RuntimeException("Failed to create visit job card: " + e.getMessage(), e);
+        }
+    }
+
     private void createMiniJobCardsDirectly(JobCard jobCard, List<String> employeeEmails) {
         if (employeeEmails != null && !employeeEmails.isEmpty()) {
             List<String> failedEmails = new ArrayList<>();
@@ -208,7 +254,7 @@ public class JobCardService {
     public List<JobCardResponse> getAllJobCards() {
         try {
             log.info("Fetching latest 70 job cards with pagination");
-            Pageable pageable = PageRequest.of(0, 70);
+            Pageable pageable = PageRequest.of(0, 40);
             return jobCardRepository.findTop100ByOrderByUpdatedAtDesc(pageable)
                     .stream()
                     .map(this::convertToResponse)
@@ -436,6 +482,24 @@ public class JobCardService {
     private void validateRepairJobCardRequest(RepairJobCardRequest request) {
         if (request == null) {
             throw new IllegalArgumentException("Repair job card request cannot be null");
+        }
+        if (request.getGeneratorId() == null) {
+            throw new IllegalArgumentException("Generator ID cannot be null");
+        }
+        if (request.getDate() == null) {
+            throw new IllegalArgumentException("Date cannot be null");
+        }
+        if (request.getEmployeeEmails() == null || request.getEmployeeEmails().isEmpty()) {
+            throw new IllegalArgumentException("At least one employee email is required");
+        }
+
+        // Validate employee emails
+        validateEmployeeEmails(request.getEmployeeEmails());
+    }
+
+    private void validateVisitJobCardRequest(VisitJobCardRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Visit job card request cannot be null");
         }
         if (request.getGeneratorId() == null) {
             throw new IllegalArgumentException("Generator ID cannot be null");

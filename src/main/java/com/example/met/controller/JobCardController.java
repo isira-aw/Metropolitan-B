@@ -2,6 +2,7 @@ package com.example.met.controller;
 
 import com.example.met.dto.request.RepairJobCardRequest;
 import com.example.met.dto.request.ServiceJobCardRequest;
+import com.example.met.dto.request.VisitJobCardRequest;
 import com.example.met.dto.response.ApiResponse;
 import com.example.met.dto.response.JobCardResponse;
 import com.example.met.enums.JobCardType;
@@ -74,6 +75,31 @@ public class JobCardController {
         } catch (Exception e) {
             log.error("Error creating repair job card for generator: {}", request.getGeneratorId(), e);
             ApiResponse<JobCardResponse> response = ApiResponse.error("Failed to create repair job card", null);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
+
+    @PostMapping("/visit")
+    @PreAuthorize("hasAnyRole('ADMIN', 'EMPLOYEE')")
+    public ResponseEntity<ApiResponse<JobCardResponse>> createVisitJobCard(@Valid @RequestBody VisitJobCardRequest request) {
+        try {
+            log.info("Request to create visit job card for generator: {}", request.getGeneratorId());
+
+            JobCardResponse jobCard = jobCardService.createVisitJobCard(request);
+            ApiResponse<JobCardResponse> response = ApiResponse.success("Visit job card created successfully", jobCard);
+
+            return new ResponseEntity<>(response, HttpStatus.CREATED);
+        } catch (IllegalArgumentException e) {
+            log.error("Invalid request data for creating visit job card: {}", e.getMessage(), e);
+            ApiResponse<JobCardResponse> response = ApiResponse.error("Invalid request data: " + e.getMessage(), null);
+            return ResponseEntity.badRequest().body(response);
+        } catch (SecurityException e) {
+            log.error("Security error while creating visit job card for generator: {}", request.getGeneratorId(), e);
+            ApiResponse<JobCardResponse> response = ApiResponse.error("Access denied. Insufficient privileges", null);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+        } catch (Exception e) {
+            log.error("Error creating visit job card for generator: {}", request.getGeneratorId(), e);
+            ApiResponse<JobCardResponse> response = ApiResponse.error("Failed to create visit job card", null);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
