@@ -334,13 +334,16 @@ public class MiniJobCardService {
 
             // Create log entry safely
             try {
-                createLogEntryDirectly(miniJobCard, oldStatus, oldLocation);
+                MiniJobCardResponse fullResponce = convertToResponse(miniJobCard);
+                createLogEntryDirectly(miniJobCard, oldStatus, fullResponce);
             } catch (Exception e) {
                 log.error("Error creating log entry for mini job card update: {}", id, e);
                 // Don't fail the update because of logging error, just log it
             }
 
             log.info("Mini job card updated successfully with ID: {}", miniJobCard.getMiniJobCardId());
+
+
             return convertToResponse(miniJobCard);
         } catch (ResourceNotFoundException | IllegalArgumentException e) {
             // Re-throw these as they are already properly handled
@@ -357,7 +360,7 @@ public class MiniJobCardService {
         }
     }
 
-    private void createLogEntryDirectly(MiniJobCard miniJobCard, JobStatus oldStatus, String oldLocation) {
+    private void createLogEntryDirectly(MiniJobCard miniJobCard, JobStatus oldStatus, MiniJobCardResponse fullResponce) {
         try {
             Log log = new Log();
             log.setEmployee(miniJobCard.getEmployee());
@@ -371,8 +374,8 @@ public class MiniJobCardService {
                 log.setDate(LocalDate.now());
                 log.setTime(LocalTime.now().withNano(0)); // Remove nanoseconds
             }
-
-            log.setStatus("Updated from " + oldStatus.name() + " to " + miniJobCard.getStatus().name());
+            log.setGeneratorName(fullResponce.getGeneratorName());
+            log.setStatus(oldStatus.name() + " to " + miniJobCard.getStatus().name());
             log.setLocation(miniJobCard.getLocation());
 
             logRepository.save(log);

@@ -22,4 +22,5 @@ public class LogResponse {
     private String status;
     private String location;
     private LocalDateTime createdAt;
+    private String generatorName;
 }
