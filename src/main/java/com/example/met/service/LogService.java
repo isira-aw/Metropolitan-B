@@ -258,7 +258,7 @@ public class LogService {
 
             LogResponse response = new LogResponse();
             response.setLogId(logEntry.getLogId());
-
+            response.setGeneratorName(logEntry.getGeneratorName());
             // Safe employee data extraction
             if (logEntry.getEmployee() != null) {
                 response.setEmployeeEmail(logEntry.getEmployee().getEmail());
@@ -295,7 +295,7 @@ public class LogService {
 
     private LocalDateTime getSafeCurrentDateTime() {
         try {
-            return LocalDateTime.now(SRI_LANKA_ZONE).withNano(0); // Remove nanoseconds
+            return LocalDateTime.now(SRI_LANKA_ZONE).withNano(0);
         } catch (DateTimeException e) {
             log.warn("Error getting current datetime with timezone, using system default: {}", e.getMessage());
             return LocalDateTime.now().withNano(0); // System default without nanoseconds
