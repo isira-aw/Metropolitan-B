@@ -31,6 +31,9 @@ public class PasswordResetService {
     @Value("${app.frontend.reset-password-url:https://metropolitan-d-production.up.railway.app/reset-password}")
     private String resetPasswordUrl;
 
+    @Value("${app.email.enabled:true}")
+    private boolean emailEnabled;
+
     @Transactional
     public String initiatePasswordReset(String email) {
         log.info("Initiating password reset for email: {}", email);
@@ -64,15 +67,32 @@ public class PasswordResetService {
         String resetLink = resetPasswordUrl + "?token=" + token;
         log.info("Generated reset link for email: {}", email);
 
-        // STEP 6: Send email only if employee exists
+        // STEP 6: Send email only if employee exists and email service is enabled
+        if (!emailEnabled) {
+            log.warn("Email service is disabled. Password reset token created but email not sent for: {}", email);
+            return "Password reset token has been generated. Please contact system administrator as email service is currently unavailable.";
+        }
+
         try {
             emailService.sendPasswordResetEmail(employee.getName(), email, resetLink);
             log.info("Password reset email sent successfully to: {}", email);
         } catch (Exception e) {
             log.error("Failed to send password reset email to: {}", email, e);
-            // Delete the token if email sending fails
-            passwordResetTokenRepository.delete(resetToken);
-            throw new RuntimeException("Failed to send password reset email. Please try again later.");
+
+            // Check if it's a connection issue vs other email issues
+            if (e.getMessage().contains("connection") ||
+                    e.getMessage().contains("timeout") ||
+                    e.getMessage().contains("connect") ||
+                    e.getCause() instanceof java.net.ConnectException) {
+
+                log.warn("Email service connection issue detected. Keeping token active for: {}", email);
+                // Don't delete the token - keep it active since the request is valid
+                return "Password reset has been processed. Due to email service issues, please contact support for your reset link or try again later.";
+            } else {
+                // For other email errors, delete the token
+                passwordResetTokenRepository.delete(resetToken);
+                throw new RuntimeException("Failed to send password reset email. Please try again later.");
+            }
         }
 
         return "If the email address is registered with us, you will receive a password reset link shortly.";
@@ -127,13 +147,18 @@ public class PasswordResetService {
         passwordResetTokenRepository.save(resetToken);
         log.info("Reset token marked as used for email: {}", employee.getEmail());
 
-        // STEP 7: Send confirmation email (optional)
-        try {
-            emailService.sendPasswordResetConfirmationEmail(employee.getName(), employee.getEmail());
-            log.info("Password reset confirmation email sent to: {}", employee.getEmail());
-        } catch (Exception e) {
-            log.warn("Failed to send password reset confirmation email to: {}", employee.getEmail(), e);
-            // Don't fail the password reset if confirmation email fails
+        // STEP 7: Send confirmation email (optional and non-critical)
+        if (emailEnabled) {
+            try {
+                emailService.sendPasswordResetConfirmationEmail(employee.getName(), employee.getEmail());
+                log.info("Password reset confirmation email sent to: {}", employee.getEmail());
+            } catch (Exception e) {
+                log.warn("Failed to send password reset confirmation email to: {} - Error: {}",
+                        employee.getEmail(), e.getMessage());
+                // Don't fail the password reset if confirmation email fails
+            }
+        } else {
+            log.info("Email service disabled - skipping confirmation email for: {}", employee.getEmail());
         }
 
         log.info("Password reset completed successfully for email: {}", employee.getEmail());
@@ -199,5 +224,10 @@ public class PasswordResetService {
             log.warn("Employee verification failed for: {}", email);
         }
         return employee;
+    }
+
+    // Method to check email service status
+    public boolean isEmailServiceAvailable() {
+        return emailEnabled && emailService.isEmailServiceAvailable();
     }
 }
