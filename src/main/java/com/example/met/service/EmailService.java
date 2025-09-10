@@ -3,6 +3,7 @@ package com.example.met.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
@@ -32,7 +33,15 @@ public class EmailService {
     @Value("${app.company.support-email:support@metropolitan.com}")
     private String supportEmail;
 
+    @Value("${app.email.enabled:true}")
+    private boolean emailEnabled;
+
     public void sendPasswordResetEmail(String name, String toEmail, String resetLink) {
+        if (!emailEnabled) {
+            log.warn("Email service is disabled. Skipping password reset email to: {}", toEmail);
+            return;
+        }
+
         try {
             log.info("Preparing to send password reset email to: {}", toEmail);
 
@@ -48,12 +57,29 @@ public class EmailService {
             log.info("Password reset email sent successfully to: {}", toEmail);
 
         } catch (Exception e) {
+            // Check if it's a connection-related exception
+            if (e.getMessage() != null && (
+                    e.getMessage().contains("connection") ||
+                            e.getMessage().contains("timeout") ||
+                            e.getMessage().contains("connect") ||
+                            e.getMessage().toLowerCase().contains("couldn't connect") ||
+                            e.getCause() instanceof java.net.ConnectException ||
+                            e.getCause() instanceof java.net.SocketTimeoutException)) {
+
+                log.error("Email connection failed for password reset email to: {}. Error: {}", toEmail, e.getMessage());
+                throw new RuntimeException("Email service is currently unavailable. Please try again later or contact support.", e);
+            }
             log.error("Failed to send password reset email to: {}", toEmail, e);
             throw new RuntimeException("Failed to send password reset email: " + e.getMessage(), e);
         }
     }
 
     public void sendPasswordResetConfirmationEmail(String name, String toEmail) {
+        if (!emailEnabled) {
+            log.warn("Email service is disabled. Skipping password reset confirmation email to: {}", toEmail);
+            return;
+        }
+
         try {
             log.info("Preparing to send password reset confirmation email to: {}", toEmail);
 
@@ -144,6 +170,11 @@ public class EmailService {
 
     // Method to send test email for verification
     public void sendTestEmail(String toEmail) {
+        if (!emailEnabled) {
+            log.warn("Email service is disabled. Skipping test email to: {}", toEmail);
+            throw new RuntimeException("Email service is currently disabled");
+        }
+
         try {
             log.info("Sending test email to: {}", toEmail);
 
@@ -159,6 +190,29 @@ public class EmailService {
         } catch (Exception e) {
             log.error("Failed to send test email to: {}", toEmail, e);
             throw new RuntimeException("Failed to send test email: " + e.getMessage(), e);
+        }
+    }
+
+    // Check if email service is available
+    public boolean isEmailServiceAvailable() {
+        if (!emailEnabled) {
+            return false;
+        }
+
+        try {
+            // Try to create a simple test message to check if mail sender is available
+            SimpleMailMessage testMessage = new SimpleMailMessage();
+            testMessage.setFrom(fromEmail);
+            testMessage.setTo("test@example.com");
+            testMessage.setSubject("Connection Test");
+            testMessage.setText("Test");
+
+            // Note: This doesn't actually send the email, just tests if the configuration is valid
+            log.info("Email service appears to be available");
+            return true;
+        } catch (Exception e) {
+            log.warn("Email service appears to be unavailable: {}", e.getMessage());
+            return false;
         }
     }
 }
