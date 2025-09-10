@@ -168,17 +168,19 @@ public class MiniJobCardService {
 
     public List<MiniJobCardResponse> getAllMiniJobCards() {
         try {
-            log.info("Fetching all mini job cards");
-            return miniJobCardRepository.findAll()
+            log.info("Fetching all mini job cards for today");
+            LocalDate today = LocalDate.now(SRI_LANKA_ZONE);
+
+            return miniJobCardRepository.findByDate(today)
                     .stream()
                     .map(this::convertToResponse)
                     .collect(Collectors.toList());
         } catch (DataAccessException e) {
-            log.error("Database error while fetching all mini job cards", e);
-            throw new RuntimeException("Database error occurred while retrieving mini job cards", e);
+            log.error("Database error while fetching today's mini job cards", e);
+            throw new RuntimeException("Database error occurred while retrieving today's mini job cards", e);
         } catch (Exception e) {
-            log.error("Error fetching all mini job cards", e);
-            throw new RuntimeException("Failed to retrieve mini job cards", e);
+            log.error("Error fetching today's mini job cards", e);
+            throw new RuntimeException("Failed to retrieve today's mini job cards", e);
         }
     }
 
