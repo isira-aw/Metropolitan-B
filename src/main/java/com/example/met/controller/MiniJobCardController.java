@@ -53,17 +53,17 @@ public class MiniJobCardController {
     @GetMapping
     public ResponseEntity<ApiResponse<List<MiniJobCardResponse>>> getAllMiniJobCards() {
         try {
-            log.info("Request to get all mini job cards");
+            log.info("Request to get today's mini job cards");
 
             List<MiniJobCardResponse> miniJobCards = miniJobCardService.getAllMiniJobCards();
             ApiResponse<List<MiniJobCardResponse>> response = ApiResponse.success(
-                    "Mini job cards retrieved successfully", miniJobCards);
+                    "Today's mini job cards retrieved successfully", miniJobCards);
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            log.error("Error retrieving all mini job cards", e);
+            log.error("Error retrieving today's mini job cards", e);
             ApiResponse<List<MiniJobCardResponse>> response = ApiResponse.error(
-                    "Failed to retrieve mini job cards", null);
+                    "Failed to retrieve today's mini job cards", null);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
