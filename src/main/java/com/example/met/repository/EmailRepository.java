@@ -10,5 +10,6 @@ import java.util.UUID;
 
 @Repository
 public interface EmailRepository extends JpaRepository<EmailEntity, UUID> {
+    List<EmailEntity> findByJobCardIdOrderByCreatedAtDesc(UUID jobCardId);
     List<EmailEntity> findBySentByOrderByCreatedAtDesc(String sentBy);
 }
