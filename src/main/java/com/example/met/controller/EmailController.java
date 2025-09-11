@@ -3,12 +3,16 @@ package com.example.met.controller;
 import com.example.met.dto.request.SendJobCardEmailRequest;
 import com.example.met.dto.response.ApiResponse;
 import com.example.met.dto.response.EmailResponse;
-import com.example.met.service.UnifiedEmailService;
+import com.example.met.service.EmailService;
+import com.example.met.service.GenEmailService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/emails")
@@ -17,7 +21,7 @@ import org.springframework.web.bind.annotation.*;
 @CrossOrigin(origins = "*")
 public class EmailController {
 
-    private final UnifiedEmailService unifiedEmailService; // Changed from GenEmailService
+    private final GenEmailService emailService;
 
     @PostMapping("/jobcard")
     public ResponseEntity<ApiResponse<EmailResponse>> sendJobCardEmail(
@@ -25,7 +29,7 @@ public class EmailController {
         log.info("Request to send email for job card: {}", request.getJobCardId());
 
         try {
-            EmailResponse emailResponse = unifiedEmailService.sendJobCardEmail(request);
+            EmailResponse emailResponse = emailService.sendJobCardEmail(request);
             ApiResponse<EmailResponse> response = ApiResponse.success(
                     "Email sent successfully", emailResponse);
 
@@ -38,20 +42,21 @@ public class EmailController {
         }
     }
 
-    @PostMapping("/test")
-    public ResponseEntity<ApiResponse<String>> sendTestEmail(@RequestParam String email) {
-        log.info("Request to send test email to: {}", email);
+    @GetMapping("/jobcard/{jobCardId}")
+    public ResponseEntity<ApiResponse<List<EmailResponse>>> getJobCardEmails(
+            @PathVariable UUID jobCardId) {
+        log.info("Request to get email history for job card: {}", jobCardId);
 
         try {
-            unifiedEmailService.sendTestEmail(email);
-            ApiResponse<String> response = ApiResponse.success(
-                    "Test email sent successfully", "Test email sent to " + email);
+            List<EmailResponse> emails = emailService.getJobCardEmails(jobCardId);
+            ApiResponse<List<EmailResponse>> response = ApiResponse.success(
+                    "Email history retrieved successfully", emails);
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            log.error("Error sending test email to: {}", email, e);
-            ApiResponse<String> response = ApiResponse.error(
-                    "Failed to send test email: " + e.getMessage());
+            log.error("Error retrieving email history for job card: {}", jobCardId, e);
+            ApiResponse<List<EmailResponse>> response = ApiResponse.error(
+                    "Failed to retrieve email history: " + e.getMessage());
             return ResponseEntity.badRequest().body(response);
         }
     }
