@@ -6,5 +6,5 @@ public enum JobStatus {
     COMPLETED,
     CANCELLED,
     ON_HOLD,
-    ASSIGNED
+    TRAVELING
 }
