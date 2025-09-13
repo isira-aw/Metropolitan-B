@@ -23,6 +23,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -295,9 +296,81 @@ public class MiniJobCardService {
 
             MiniJobCard miniJobCard = findById(id);
 
-            // Store old values for logging
+            // Store old values for logging and time calculation
             JobStatus oldStatus = miniJobCard.getStatus();
             String oldLocation = miniJobCard.getLocation();
+            LocalDateTime lastUpdatedTime = miniJobCard.getUpdatedAt();
+
+            // Get current time for calculations
+            LocalDateTime currentTime = LocalDateTime.now(SRI_LANKA_ZONE);
+
+            JobStatus newStatus = request.getStatus();
+
+            if (oldStatus == newStatus) {
+                throw new IllegalArgumentException("Same status cannot be updated when updating mini job card");
+            }
+
+            // Calculate time spent in previous status and update accumulation fields
+            if (lastUpdatedTime != null) {
+                long minutesSpentInPreviousStatus = ChronoUnit.MINUTES.between(lastUpdatedTime, currentTime);
+
+                // Only calculate time for specific statuses: IN_PROGRESS, ON_HOLD, ASSIGNED
+                if (oldStatus == JobStatus.ON_HOLD) {
+                    // Add time spent in ON_HOLD status
+                    LocalTime currentOnHoldTime = miniJobCard.getSpentOnOnHold();
+                    int totalMinutesOnHold = currentOnHoldTime.getHour() * 60 + currentOnHoldTime.getMinute() + (int) minutesSpentInPreviousStatus;
+
+                    // Convert back to LocalTime (handle overflow if needed)
+                    int hoursOnHold = totalMinutesOnHold / 60;
+                    int minutesOnHold = totalMinutesOnHold % 60;
+
+                    // Handle case where total time exceeds 24 hours
+                    if (hoursOnHold >= 24) {
+                        hoursOnHold = hoursOnHold % 24; // Keep within 24-hour format for LocalTime
+                    }
+
+                    miniJobCard.setSpentOnOnHold(LocalTime.of(hoursOnHold, minutesOnHold, 0));
+                    log.info("Added {} minutes to ON_HOLD time. Total ON_HOLD time: {}:{}",
+                            minutesSpentInPreviousStatus, hoursOnHold, minutesOnHold);
+
+                } else if (oldStatus == JobStatus.IN_PROGRESS) {
+                    // Add time spent in IN_PROGRESS status
+                    LocalTime currentInProgressTime = miniJobCard.getSpentOnInProgress();
+                    int totalMinutesInProgress = currentInProgressTime.getHour() * 60 + currentInProgressTime.getMinute() + (int) minutesSpentInPreviousStatus;
+
+                    // Convert back to LocalTime (handle overflow if needed)
+                    int hoursInProgress = totalMinutesInProgress / 60;
+                    int minutesInProgress = totalMinutesInProgress % 60;
+
+                    // Handle case where total time exceeds 24 hours
+                    if (hoursInProgress >= 24) {
+                        hoursInProgress = hoursInProgress % 24; // Keep within 24-hour format for LocalTime
+                    }
+
+                    miniJobCard.setSpentOnInProgress(LocalTime.of(hoursInProgress, minutesInProgress, 0));
+                    log.info("Added {} minutes to IN_PROGRESS time. Total IN_PROGRESS time: {}:{}",
+                            minutesSpentInPreviousStatus, hoursInProgress, minutesInProgress);
+
+                } else if (oldStatus == JobStatus.ASSIGNED) {
+                    // Add time spent in ASSIGNED status
+                    LocalTime currentAssignedTime = miniJobCard.getSpentOnCompleted();
+                    int totalMinutesAssigned = currentAssignedTime.getHour() * 60 + currentAssignedTime.getMinute() + (int) minutesSpentInPreviousStatus;
+
+                    // Convert back to LocalTime (handle overflow if needed)
+                    int hoursAssigned = totalMinutesAssigned / 60;
+                    int minutesAssigned = totalMinutesAssigned % 60;
+
+                    // Handle case where total time exceeds 24 hours
+                    if (hoursAssigned >= 24) {
+                        hoursAssigned = hoursAssigned % 24; // Keep within 24-hour format for LocalTime
+                    }
+
+                    miniJobCard.setSpentOnCompleted(LocalTime.of(hoursAssigned, minutesAssigned, 0));
+                    log.info("Added {} minutes to ASSIGNED time. Total ASSIGNED time: {}:{}",
+                            minutesSpentInPreviousStatus, hoursAssigned, minutesAssigned);
+                }
+                // For PENDING and CANCELLED statuses, we don't track time as per requirements
+            }
 
             // Update fields with validation
             if (request.getStatus() != null) {
@@ -332,21 +405,23 @@ public class MiniJobCardService {
                 miniJobCard.setTime(getSafeCurrentTime());
             }
 
+            // Save the updated mini job card
             miniJobCard = miniJobCardRepository.save(miniJobCard);
 
             // Create log entry safely
             try {
-                MiniJobCardResponse fullResponce = convertToResponse(miniJobCard);
-                createLogEntryDirectly(miniJobCard, oldStatus, fullResponce);
+                MiniJobCardResponse fullResponse = convertToResponse(miniJobCard);
+                createLogEntryDirectly(miniJobCard, oldStatus, fullResponse);
             } catch (Exception e) {
                 log.error("Error creating log entry for mini job card update: {}", id, e);
                 // Don't fail the update because of logging error, just log it
             }
 
-            log.info("Mini job card updated successfully with ID: {}", miniJobCard.getMiniJobCardId());
-
+            log.info("Mini job card updated successfully with ID: {}. Status changed from {} to {}",
+                    miniJobCard.getMiniJobCardId(), oldStatus, newStatus);
 
             return convertToResponse(miniJobCard);
+
         } catch (ResourceNotFoundException | IllegalArgumentException e) {
             // Re-throw these as they are already properly handled
             throw e;
