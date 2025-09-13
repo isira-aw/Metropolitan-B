@@ -1,50 +1,44 @@
 package com.example.met.controller;
 
-import com.example.met.dto.request.ReportRequest;
-import com.example.met.dto.response.ReportDataResponse;
-import com.example.met.service.ReportService;
-import com.example.met.service.EmployeeService;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
+import lombok.extern.slf4j.Slf4j;
 import jakarta.validation.Valid;
-
-import java.util.List;
+import com.example.met.service.ReportService;
+import com.example.met.dto.request.EmployeeTimeReportRequest;
+import com.example.met.dto.response.EmployeeTimeReportResponse;
 
 @RestController
 @RequestMapping("/reports")
-@RequiredArgsConstructor
 @Slf4j
 public class ReportController {
 
     private final ReportService reportService;
-    private final EmployeeService employeeService;
 
+    public ReportController(ReportService reportService) {
+        this.reportService = reportService;
+    }
 
-    @PostMapping("/employee/preview")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER') or #request.email == authentication.name")
-    public ResponseEntity<List<ReportDataResponse>> previewReportData(@Valid @RequestBody ReportRequest request) {
-        log.info("Previewing report data for: {} from {} to {}",
-                request.getEmail(), request.getStartDate(), request.getEndDate());
-
+    @PostMapping("/employee-time-report")
+    public ResponseEntity<EmployeeTimeReportResponse> generateEmployeeTimeReport(
+            @Valid @RequestBody EmployeeTimeReportRequest request) {
         try {
-            // Validate date range
-            if (request.getStartDate().isAfter(request.getEndDate())) {
-                return ResponseEntity.badRequest().build();
-            }
+            log.info("Generating time report for employee: {} from {} to {}",
+                    request.getEmployeeEmail(), request.getStartDate(), request.getEndDate());
 
-            List<ReportDataResponse> reportData = reportService.generateReportData(request);
-            return ResponseEntity.ok(reportData);
+            EmployeeTimeReportResponse report = reportService.generateEmployeeTimeReport(request);
 
+            log.info("Successfully generated report for employee: {} with {} job cards",
+                    request.getEmployeeEmail(), report.getJobCards().size());
+
+            return ResponseEntity.ok(report);
+        } catch (IllegalArgumentException e) {
+            log.error("Invalid request for time report: {}", e.getMessage());
+            return ResponseEntity.badRequest().build();
         } catch (Exception e) {
-            log.error("Error previewing report data", e);
+            log.error("Error generating time report for employee: {}", request.getEmployeeEmail(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
-
-
 }

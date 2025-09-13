@@ -35,4 +35,28 @@ public interface MiniJobCardRepository extends JpaRepository<MiniJobCard, UUID> 
 
     @Query("SELECT COUNT(m) FROM MiniJobCard m WHERE m.employee.email = :email AND m.status = :status")
     long countByEmployeeEmailAndStatus(@Param("email") String email, @Param("status") JobStatus status);
+
+
+    @Query("SELECT m FROM MiniJobCard m " +
+            "JOIN FETCH m.jobCard " +
+            "JOIN FETCH m.employee " +
+            "WHERE m.employee.email = :employeeEmail " +
+            "AND m.date >= :startDate " +
+            "AND m.date <= :endDate " +
+            "ORDER BY m.date DESC, m.updatedAt DESC")
+    List<MiniJobCard> findByEmployeeEmailAndDateRange(
+            @Param("employeeEmail") String employeeEmail,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate
+    );
+
+    @Query("SELECT COUNT(m) FROM MiniJobCard m " +
+            "WHERE m.employee.email = :employeeEmail " +
+            "AND m.date >= :startDate " +
+            "AND m.date <= :endDate")
+    long countByEmployeeEmailAndDateRange(
+            @Param("employeeEmail") String employeeEmail,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate
+    );
 }
