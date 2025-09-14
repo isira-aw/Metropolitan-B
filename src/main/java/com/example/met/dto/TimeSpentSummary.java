@@ -16,9 +16,8 @@ public class TimeSpentSummary {
     private String totalAssignedTime;    // Format: "HH:mm"
     private String totalCombinedTime;    // Format: "HH:mm"
 
-    private long totalOnHoldMinutes;
-    private long totalInProgressMinutes;
-    private long totalAssignedMinutes;
-    private long totalCombinedMinutes;
-
+    private int totalOnHoldMinutes;
+    private int totalInProgressMinutes;
+    private int totalAssignedMinutes;
+    private int totalCombinedMinutes;
 }
