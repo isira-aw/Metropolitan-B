@@ -28,10 +28,10 @@ public class JobCardTimeDetails {
     private String timeSpentAssigned;    // Format: "HH:mm"
 
     // Time in minutes for calculations
-    private long onHoldMinutes;
-    private long inProgressMinutes;
-    private long assignedMinutes;
-    private long totalMinutes;
+    private int onHoldMinutes;
+    private int inProgressMinutes;
+    private int assignedMinutes;
+    private int totalMinutes;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

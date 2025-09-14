@@ -1,6 +1,16 @@
 package com.example.met.service;
 
 import com.example.met.entity.JobCard;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import lombok.extern.slf4j.Slf4j;
+import java.time.ZoneId;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
+import java.util.stream.Collectors;
 import com.example.met.entity.MiniJobCard;
 import com.example.met.entity.Employee;
 import com.example.met.repository.MiniJobCardRepository;
@@ -9,17 +19,6 @@ import com.example.met.dto.request.EmployeeTimeReportRequest;
 import com.example.met.dto.response.EmployeeTimeReportResponse;
 import com.example.met.dto.TimeSpentSummary;
 import com.example.met.dto.JobCardTimeDetails;
-
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import lombok.extern.slf4j.Slf4j;
-
-import java.time.ZoneId;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
-import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -95,11 +94,11 @@ public class ReportService {
 
     private JobCardTimeDetails convertToJobCardTimeDetails(MiniJobCard miniJobCard) {
 
-        // Directly use long fields from MiniJobCard (minutes already stored)
-        long onHoldMinutes = miniJobCard.getSpentOnOnHoldMinutes();
-        long inProgressMinutes = miniJobCard.getSpentOnInProgressMinutes();
-        long completedMinutes = miniJobCard.getSpentOnAssignedMinutes();
-        long totalMinutes = onHoldMinutes + inProgressMinutes + completedMinutes;
+        // Convert LocalTime to minutes for calculations
+        int onHoldMinutes = timeToMinutes(miniJobCard.getSpentOnOnHold());
+        int inProgressMinutes = timeToMinutes(miniJobCard.getSpentOnInProgress());
+        int assignedMinutes = timeToMinutes(miniJobCard.getSpentOnCompleted());
+        int totalMinutes = onHoldMinutes + inProgressMinutes + assignedMinutes;
 
         return JobCardTimeDetails.builder()
                 .miniJobCardId(miniJobCard.getMiniJobCardId())
@@ -108,12 +107,12 @@ public class ReportService {
                 .currentStatus(miniJobCard.getStatus())
                 .date(miniJobCard.getDate())
                 .location(miniJobCard.getLocation())
-                .timeSpentOnHold(minutesToTimeString(onHoldMinutes))
-                .timeSpentInProgress(minutesToTimeString(inProgressMinutes))
-                .timeSpentAssigned(minutesToTimeString(completedMinutes))
+                .timeSpentOnHold(formatTime(miniJobCard.getSpentOnOnHold()))
+                .timeSpentInProgress(formatTime(miniJobCard.getSpentOnInProgress()))
+                .timeSpentAssigned(formatTime(miniJobCard.getSpentOnCompleted()))
                 .onHoldMinutes(onHoldMinutes)
                 .inProgressMinutes(inProgressMinutes)
-                .assignedMinutes(completedMinutes)
+                .assignedMinutes(assignedMinutes)
                 .totalMinutes(totalMinutes)
                 .createdAt(miniJobCard.getCreatedAt())
                 .updatedAt(miniJobCard.getUpdatedAt())
@@ -123,24 +122,24 @@ public class ReportService {
     private String getJobCardTitle(JobCard jobCard) {
         String generatorName = jobCard.getGenerator().getName();
         String generatorKW = jobCard.getGenerator().getCapacity();
-        return jobCard.getJobType().toString() + " - " + generatorName + "\n ( - " + generatorKW + "KW )";
+        return jobCard.getJobType().toString() + " - " + generatorName +"\n ( - "+generatorKW +"KW )";
     }
 
     private TimeSpentSummary calculateTimeSpentSummary(List<JobCardTimeDetails> jobCardDetails) {
 
-        long totalOnHoldMinutes = jobCardDetails.stream()
-                .mapToLong(JobCardTimeDetails::getOnHoldMinutes)
+        int totalOnHoldMinutes = jobCardDetails.stream()
+                .mapToInt(JobCardTimeDetails::getOnHoldMinutes)
                 .sum();
 
-        long totalInProgressMinutes = jobCardDetails.stream()
-                .mapToLong(JobCardTimeDetails::getInProgressMinutes)
+        int totalInProgressMinutes = jobCardDetails.stream()
+                .mapToInt(JobCardTimeDetails::getInProgressMinutes)
                 .sum();
 
-        long totalAssignedMinutes = jobCardDetails.stream()
-                .mapToLong(JobCardTimeDetails::getAssignedMinutes)
+        int totalAssignedMinutes = jobCardDetails.stream()
+                .mapToInt(JobCardTimeDetails::getAssignedMinutes)
                 .sum();
 
-        long totalCombinedMinutes = totalOnHoldMinutes + totalInProgressMinutes + totalAssignedMinutes;
+        int totalCombinedMinutes = totalOnHoldMinutes + totalInProgressMinutes + totalAssignedMinutes;
 
         return TimeSpentSummary.builder()
                 .totalOnHoldTime(minutesToTimeString(totalOnHoldMinutes))
@@ -154,9 +153,23 @@ public class ReportService {
                 .build();
     }
 
-    private String minutesToTimeString(long totalMinutes) {
-        long hours = totalMinutes / 60;
-        long minutes = totalMinutes % 60;
+    private int timeToMinutes(LocalTime time) {
+        if (time == null) {
+            return 0;
+        }
+        return time.getHour() * 60 + time.getMinute();
+    }
+
+    private String formatTime(LocalTime time) {
+        if (time == null) {
+            return "00:00";
+        }
+        return String.format("%02d:%02d", time.getHour(), time.getMinute());
+    }
+
+    private String minutesToTimeString(int totalMinutes) {
+        int hours = totalMinutes / 60;
+        int minutes = totalMinutes % 60;
         return String.format("%02d:%02d", hours, minutes);
     }
 }
