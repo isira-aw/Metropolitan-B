@@ -302,7 +302,7 @@ public class MiniJobCardService {
             LocalDateTime lastUpdatedTime = miniJobCard.getUpdatedAt();
 
             // Get current time for calculations
-            LocalDateTime currentTime = LocalDateTime.now();
+            LocalDateTime currentTime = LocalDateTime.now(SRI_LANKA_ZONE);
 
             JobStatus newStatus = request.getStatus();
 
