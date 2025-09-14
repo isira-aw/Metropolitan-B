@@ -300,6 +300,7 @@ public class MiniJobCardService {
             JobStatus oldStatus = miniJobCard.getStatus();
             String oldLocation = miniJobCard.getLocation();
             LocalDateTime lastUpdatedTime = miniJobCard.getUpdatedAt();
+
             // Get current time for calculations
             LocalDateTime currentTime = LocalDateTime.now(SRI_LANKA_ZONE);
 
@@ -373,7 +374,6 @@ public class MiniJobCardService {
 
             // Update fields with validation
             if (request.getStatus() != null) {
-                miniJobCard.setLastUpdateTime(LocalTime.now());
                 miniJobCard.setStatus(request.getStatus());
             }
 

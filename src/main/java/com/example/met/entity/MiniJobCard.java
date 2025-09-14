@@ -54,9 +54,6 @@ public class MiniJobCard {
     @Column(name = "spent_on_IN_PROGRESS")
     private LocalTime spentOnInProgress = LocalTime.of(00, 00, 0);
 
-    @Column(name = "last_update")
-    private LocalTime lastUpdateTime = LocalTime.of(00, 00, 0);
-
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss'Z'")
