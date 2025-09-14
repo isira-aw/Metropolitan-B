@@ -97,7 +97,7 @@ public class ReportService {
         // Convert LocalTime to minutes for calculations
         int onHoldMinutes = timeToMinutes(miniJobCard.getSpentOnOnHold());
         int inProgressMinutes = timeToMinutes(miniJobCard.getSpentOnInProgress());
-        int assignedMinutes = timeToMinutes(miniJobCard.getSpentOnCompleted());
+        int assignedMinutes = timeToMinutes(miniJobCard.getSpentOnAssigned());
         int totalMinutes = onHoldMinutes + inProgressMinutes + assignedMinutes;
 
         return JobCardTimeDetails.builder()
@@ -109,7 +109,7 @@ public class ReportService {
                 .location(miniJobCard.getLocation())
                 .timeSpentOnHold(formatTime(miniJobCard.getSpentOnOnHold()))
                 .timeSpentInProgress(formatTime(miniJobCard.getSpentOnInProgress()))
-                .timeSpentAssigned(formatTime(miniJobCard.getSpentOnCompleted()))
+                .timeSpentAssigned(formatTime(miniJobCard.getSpentOnAssigned()))
                 .onHoldMinutes(onHoldMinutes)
                 .inProgressMinutes(inProgressMinutes)
                 .assignedMinutes(assignedMinutes)

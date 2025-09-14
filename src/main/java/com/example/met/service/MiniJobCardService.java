@@ -9,7 +9,6 @@ import com.example.met.exception.ResourceNotFoundException;
 import com.example.met.repository.JobCardRepository;
 import com.example.met.repository.LogRepository;
 import com.example.met.repository.MiniJobCardRepository;
-import com.example.met.util.TimeZoneUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataAccessException;
@@ -22,7 +21,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
-import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
@@ -66,6 +64,9 @@ public class MiniJobCardService {
                     miniJobCard.setDate(LocalDate.now()); // System default fallback
                 }
             }
+
+            // Set initial timestamp for tracking
+            miniJobCard.setLastTimeUpdateThisTicket(getSafeCurrentDateTime());
 
             // Validate required fields
             validateMiniJobCard(miniJobCard);
@@ -124,6 +125,9 @@ public class MiniJobCardService {
             }
 
             miniJobCard.setStatus(JobStatus.PENDING);
+
+            // Set initial tracking timestamp
+            miniJobCard.setLastTimeUpdateThisTicket(getSafeCurrentDateTime());
 
             miniJobCard = miniJobCardRepository.save(miniJobCard);
             log.info("Mini job card created successfully with ID: {}", miniJobCard.getMiniJobCardId());
@@ -298,83 +302,32 @@ public class MiniJobCardService {
 
             // Store old values for logging and time calculation
             JobStatus oldStatus = miniJobCard.getStatus();
-            String oldLocation = miniJobCard.getLocation();
-            LocalDateTime lastUpdatedTime = miniJobCard.getUpdatedAt();
+            LocalDateTime lastUpdateTime = miniJobCard.getLastTimeUpdateThisTicket();
 
             // Get current time for calculations
-            LocalDateTime currentTime = LocalDateTime.now(SRI_LANKA_ZONE);
-
+            LocalDateTime currentTime = getSafeCurrentDateTime();
             JobStatus newStatus = request.getStatus();
 
-            if (oldStatus == newStatus) {
-                throw new IllegalArgumentException("Same status cannot be updated when updating mini job card");
+            // Validate status change
+            if (newStatus != null && oldStatus == newStatus) {
+                throw new IllegalArgumentException("Cannot update to the same status. Current status is already: " + oldStatus);
             }
 
             // Calculate time spent in previous status and update accumulation fields
-            if (lastUpdatedTime != null) {
-                long minutesSpentInPreviousStatus = ChronoUnit.MINUTES.between(lastUpdatedTime, currentTime);
+            if (lastUpdateTime != null && newStatus != null) {
+                long minutesSpentInPreviousStatus = ChronoUnit.MINUTES.between(lastUpdateTime, currentTime);
 
-                // Only calculate time for specific statuses: IN_PROGRESS, ON_HOLD, ASSIGNED
-                if (oldStatus == JobStatus.ON_HOLD) {
-                    // Add time spent in ON_HOLD status
-                    LocalTime currentOnHoldTime = miniJobCard.getSpentOnOnHold();
-                    int totalMinutesOnHold = currentOnHoldTime.getHour() * 60 + currentOnHoldTime.getMinute() + (int) minutesSpentInPreviousStatus;
-
-                    // Convert back to LocalTime (handle overflow if needed)
-                    int hoursOnHold = totalMinutesOnHold / 60;
-                    int minutesOnHold = totalMinutesOnHold % 60;
-
-                    // Handle case where total time exceeds 24 hours
-                    if (hoursOnHold >= 24) {
-                        hoursOnHold = hoursOnHold % 24; // Keep within 24-hour format for LocalTime
-                    }
-
-                    miniJobCard.setSpentOnOnHold(LocalTime.of(hoursOnHold, minutesOnHold, 0));
-                    log.info("Added {} minutes to ON_HOLD time. Total ON_HOLD time: {}:{}",
-                            minutesSpentInPreviousStatus, hoursOnHold, minutesOnHold);
-
-                } else if (oldStatus == JobStatus.IN_PROGRESS) {
-                    // Add time spent in IN_PROGRESS status
-                    LocalTime currentInProgressTime = miniJobCard.getSpentOnInProgress();
-                    int totalMinutesInProgress = currentInProgressTime.getHour() * 60 + currentInProgressTime.getMinute() + (int) minutesSpentInPreviousStatus;
-
-                    // Convert back to LocalTime (handle overflow if needed)
-                    int hoursInProgress = totalMinutesInProgress / 60;
-                    int minutesInProgress = totalMinutesInProgress % 60;
-
-                    // Handle case where total time exceeds 24 hours
-                    if (hoursInProgress >= 24) {
-                        hoursInProgress = hoursInProgress % 24; // Keep within 24-hour format for LocalTime
-                    }
-
-                    miniJobCard.setSpentOnInProgress(LocalTime.of(hoursInProgress, minutesInProgress, 0));
-                    log.info("Added {} minutes to IN_PROGRESS time. Total IN_PROGRESS time: {}:{}",
-                            minutesSpentInPreviousStatus, hoursInProgress, minutesInProgress);
-
-                } else if (oldStatus == JobStatus.ASSIGNED) {
-                    // Add time spent in ASSIGNED status
-                    LocalTime currentAssignedTime = miniJobCard.getSpentOnCompleted();
-                    int totalMinutesAssigned = currentAssignedTime.getHour() * 60 + currentAssignedTime.getMinute() + (int) minutesSpentInPreviousStatus;
-
-                    // Convert back to LocalTime (handle overflow if needed)
-                    int hoursAssigned = totalMinutesAssigned / 60;
-                    int minutesAssigned = totalMinutesAssigned % 60;
-
-                    // Handle case where total time exceeds 24 hours
-                    if (hoursAssigned >= 24) {
-                        hoursAssigned = hoursAssigned % 24; // Keep within 24-hour format for LocalTime
-                    }
-
-                    miniJobCard.setSpentOnCompleted(LocalTime.of(hoursAssigned, minutesAssigned, 0));
-                    log.info("Added {} minutes to ASSIGNED time. Total ASSIGNED time: {}:{}",
-                            minutesSpentInPreviousStatus, hoursAssigned, minutesAssigned);
+                // Only track time for trackable statuses and ensure non-negative time
+                if (minutesSpentInPreviousStatus > 0) {
+                    updateTimeSpentInStatus(miniJobCard, oldStatus, minutesSpentInPreviousStatus);
                 }
-                // For PENDING and CANCELLED statuses, we don't track time as per requirements
             }
 
             // Update fields with validation
             if (request.getStatus() != null) {
                 miniJobCard.setStatus(request.getStatus());
+                // Update tracking timestamp only when status changes
+                miniJobCard.setLastTimeUpdateThisTicket(currentTime);
             }
 
             if (request.getDate() != null) {
@@ -400,9 +353,6 @@ public class MiniJobCardService {
                     log.warn("Invalid time in request, using current time: {}", e.getMessage());
                     miniJobCard.setTime(getSafeCurrentTime());
                 }
-            } else {
-                // Set current time if not provided
-                miniJobCard.setTime(getSafeCurrentTime());
             }
 
             // Save the updated mini job card
@@ -437,25 +387,112 @@ public class MiniJobCardService {
         }
     }
 
-    private void createLogEntryDirectly(MiniJobCard miniJobCard, JobStatus oldStatus, MiniJobCardResponse fullResponce) {
+    /**
+     * Updates the time spent in a specific status for the mini job card
+     *
+     * @param miniJobCard The mini job card to update
+     * @param status The status that time was spent in
+     * @param minutesSpent The number of minutes spent in that status
+     */
+    private void updateTimeSpentInStatus(MiniJobCard miniJobCard, JobStatus status, long minutesSpent) {
         try {
-            Log log = new Log();
-            log.setEmployee(miniJobCard.getEmployee());
-            log.setAction("UPDATE_MINI_JOB_CARD");
+            switch (status) {
+                case ON_HOLD:
+                    updateSpentTime(miniJobCard, "ON_HOLD", minutesSpent,
+                            miniJobCard.getSpentOnOnHold(),
+                            time -> miniJobCard.setSpentOnOnHold(time));
+                    break;
+
+                case ASSIGNED:
+                    updateSpentTime(miniJobCard, "ASSIGNED", minutesSpent,
+                            miniJobCard.getSpentOnAssigned(),
+                            time -> miniJobCard.setSpentOnAssigned(time));
+                    break;
+
+                case IN_PROGRESS:
+                    updateSpentTime(miniJobCard, "IN_PROGRESS", minutesSpent,
+                            miniJobCard.getSpentOnInProgress(),
+                            time -> miniJobCard.setSpentOnInProgress(time));
+                    break;
+
+                case PENDING:
+                case COMPLETED:
+                case CANCELLED:
+                    // These statuses don't track time as per business requirements
+                    log.debug("Status {} does not track time spent", status);
+                    break;
+
+                default:
+                    log.warn("Unknown status: {}, no time tracking applied", status);
+                    break;
+            }
+        } catch (Exception e) {
+            log.error("Error updating time spent for status: {}", status, e);
+            // Don't propagate this error as it's not critical for the main operation
+        }
+    }
+
+    /**
+     * Helper method to update spent time for a specific status
+     */
+    private void updateSpentTime(MiniJobCard miniJobCard, String statusName, long minutesSpent,
+                                 LocalTime currentTime, java.util.function.Consumer<LocalTime> setter) {
+        try {
+            // Get current accumulated time or default to 00:00:00
+            LocalTime accumulatedTime = currentTime != null ? currentTime : LocalTime.of(0, 0, 0);
+
+            // Convert current time to total minutes
+            int currentTotalMinutes = accumulatedTime.getHour() * 60 + accumulatedTime.getMinute();
+
+            // Add the new minutes spent
+            int newTotalMinutes = currentTotalMinutes + (int) minutesSpent;
+
+            // Convert back to LocalTime (handle overflow properly)
+            int hours = newTotalMinutes / 60;
+            int minutes = newTotalMinutes % 60;
+
+            // For time tracking, we'll allow accumulation beyond 24 hours by using modulo
+            // This ensures we don't lose data but stay within LocalTime constraints
+            int displayHours = hours % 24;
+
+            // Log if time exceeds 24 hours for monitoring purposes
+            if (hours >= 24) {
+                log.warn("Time spent in status {} for mini job card {} exceeds 24 hours. Total: {}:{}, Display: {}:{}",
+                        statusName, miniJobCard.getMiniJobCardId(), hours, minutes, displayHours, minutes);
+            }
+
+            LocalTime newTime = LocalTime.of(displayHours, minutes, 0);
+            setter.accept(newTime);
+
+            log.info("Updated {} time for mini job card {}: added {} minutes, total now: {}:{}",
+                    statusName, miniJobCard.getMiniJobCardId(), minutesSpent, displayHours, minutes);
+
+        } catch (Exception e) {
+            log.error("Error calculating time for status: {}", statusName, e);
+            // Set a safe default if calculation fails
+            setter.accept(LocalTime.of(0, 0, 0));
+        }
+    }
+
+    private void createLogEntryDirectly(MiniJobCard miniJobCard, JobStatus oldStatus, MiniJobCardResponse fullResponse) {
+        try {
+            Log logEntry = new Log();
+            logEntry.setEmployee(miniJobCard.getEmployee());
+            logEntry.setAction("UPDATE_MINI_JOB_CARD");
 
             // Safe date and time setting
             try {
-                log.setDate(LocalDate.now(SRI_LANKA_ZONE));
-                log.setTime(getSafeCurrentTime());
+                logEntry.setDate(LocalDate.now(SRI_LANKA_ZONE));
+                logEntry.setTime(getSafeCurrentTime());
             } catch (DateTimeException e) {
-                log.setDate(LocalDate.now());
-                log.setTime(LocalTime.now().withNano(0)); // Remove nanoseconds
+                logEntry.setDate(LocalDate.now());
+                logEntry.setTime(LocalTime.now().withNano(0)); // Remove nanoseconds
             }
-            log.setGeneratorName(fullResponce.getGeneratorName());
-            log.setStatus(oldStatus.name() + " to " + miniJobCard.getStatus().name());
-            log.setLocation(miniJobCard.getLocation());
+            logEntry.setGeneratorName(fullResponse.getGeneratorName());
+            logEntry.setStatus(oldStatus.name() + " to " + miniJobCard.getStatus().name());
+            logEntry.setLocation(miniJobCard.getLocation());
 
-            logRepository.save(log);
+            logRepository.save(logEntry);
         } catch (Exception e) {
             log.error("Failed to create log entry for mini job card update", e);
             // Don't propagate this error as it's not critical for the main operation
