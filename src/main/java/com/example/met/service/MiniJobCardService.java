@@ -353,7 +353,7 @@ public class MiniJobCardService {
 
                 } else if (oldStatus == JobStatus.ASSIGNED) {
                     // Add time spent in ASSIGNED status
-                    LocalTime currentAssignedTime = miniJobCard.getSpentOnAssigned();
+                    LocalTime currentAssignedTime = miniJobCard.getSpentOnCompleted();
                     int totalMinutesAssigned = currentAssignedTime.getHour() * 60 + currentAssignedTime.getMinute() + (int) minutesSpentInPreviousStatus;
 
                     // Convert back to LocalTime (handle overflow if needed)
@@ -365,7 +365,7 @@ public class MiniJobCardService {
                         hoursAssigned = hoursAssigned % 24; // Keep within 24-hour format for LocalTime
                     }
 
-                    miniJobCard.setSpentOnAssigned(LocalTime.of(hoursAssigned, minutesAssigned, 0));
+                    miniJobCard.setSpentOnCompleted(LocalTime.of(hoursAssigned, minutesAssigned, 0));
                     log.info("Added {} minutes to ASSIGNED time. Total ASSIGNED time: {}:{}",
                             minutesSpentInPreviousStatus, hoursAssigned, minutesAssigned);
                 }
