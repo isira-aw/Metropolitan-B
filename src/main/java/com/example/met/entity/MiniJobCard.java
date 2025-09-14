@@ -9,9 +9,7 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
+import java.time.*;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
@@ -21,6 +19,9 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 public class MiniJobCard {
+
+    private static final ZoneId SRI_LANKA_ZONE = ZoneId.of("Asia/Colombo");
+
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
     @Column(name = "mini_job_card_id")
@@ -46,45 +47,44 @@ public class MiniJobCard {
     private LocalTime time;
 
     @Column(name = "spent_on_ON_HOLD")
-    private LocalTime spentOnOnHold = LocalTime.of(00, 00, 0);
+    private LocalTime spentOnOnHold = LocalTime.of(0, 0);
 
     @Column(name = "spent_on_ASSIGNED")
-    private LocalTime spentOnCompleted = LocalTime.of(00, 00, 0);
+    private LocalTime spentOnAssigned = LocalTime.of(0, 0);
 
     @Column(name = "spent_on_IN_PROGRESS")
-    private LocalTime spentOnInProgress = LocalTime.of(00, 00, 0);
+    private LocalTime spentOnInProgress = LocalTime.of(0, 0);
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
-    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss'Z'")
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime createdAt;
 
     @UpdateTimestamp
     @Column(name = "updated_at")
-    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss'Z'")
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime updatedAt;
 
     @PrePersist
     private void setDefaults() {
         if (this.time == null) {
-            this.time = LocalTime.now(java.time.ZoneId.of("Asia/Colombo"));
+            this.time = LocalTime.now(SRI_LANKA_ZONE);
         }
         if (this.date == null) {
-            this.date = LocalDate.now(java.time.ZoneId.of("Asia/Colombo"));
+            this.date = LocalDate.now(SRI_LANKA_ZONE);
         }
-        if (createdAt != null) {
-            createdAt = createdAt.truncatedTo(ChronoUnit.MILLIS);
+        // Override Hibernate timestamps to use Sri Lanka zone
+        if (this.createdAt == null) {
+            this.createdAt = LocalDateTime.now(SRI_LANKA_ZONE).truncatedTo(ChronoUnit.MILLIS);
         }
-        if (updatedAt != null) {
-            updatedAt = updatedAt.truncatedTo(ChronoUnit.MILLIS);
+        if (this.updatedAt == null) {
+            this.updatedAt = LocalDateTime.now(SRI_LANKA_ZONE).truncatedTo(ChronoUnit.MILLIS);
         }
     }
 
     @PreUpdate
     protected void onUpdate() {
-        if (updatedAt != null) {
-            updatedAt = updatedAt.truncatedTo(ChronoUnit.MILLIS);
-        }
+        this.updatedAt = LocalDateTime.now(SRI_LANKA_ZONE).truncatedTo(ChronoUnit.MILLIS);
     }
 
     public void setCreatedAt(LocalDateTime createdAt) {
