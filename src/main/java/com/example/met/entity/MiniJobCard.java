@@ -45,16 +45,14 @@ public class MiniJobCard {
 
     private LocalTime time;
 
+    @Column(name = "spent_on_ON_HOLD")
+    private LocalTime spentOnOnHold = LocalTime.of(00, 00, 0);
 
-    @Column(name = "spent_on_on_hold", nullable = false)
-    private long spentOnOnHoldMinutes = 0;
+    @Column(name = "spent_on_ASSIGNED")
+    private LocalTime spentOnCompleted = LocalTime.of(00, 00, 0);
 
-    @Column(name = "spent_on_in_progress", nullable = false)
-    private long spentOnInProgressMinutes = 0;
-
-    @Column(name = "spent_on_assigned", nullable = false)
-    private long spentOnAssignedMinutes = 0;
-
+    @Column(name = "spent_on_IN_PROGRESS")
+    private LocalTime spentOnInProgress = LocalTime.of(00, 00, 0);
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
@@ -69,7 +67,7 @@ public class MiniJobCard {
     @PrePersist
     private void setDefaults() {
         if (this.time == null) {
-            this.time = java.time.LocalTime.now(java.time.ZoneId.of("Asia/Colombo"));
+            this.time = LocalTime.now(java.time.ZoneId.of("Asia/Colombo"));
         }
         if (this.date == null) {
             this.date = LocalDate.now(java.time.ZoneId.of("Asia/Colombo"));

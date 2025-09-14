@@ -311,92 +311,65 @@ public class MiniJobCardService {
             }
 
             // Calculate time spent in previous status and update accumulation fields
-//            if (lastUpdatedTime != null) {
-//                long minutesSpentInPreviousStatus = ChronoUnit.MINUTES.between(lastUpdatedTime, currentTime);
-//
-//                // Only calculate time for specific statuses: IN_PROGRESS, ON_HOLD, ASSIGNED
-//                if (oldStatus == JobStatus.ON_HOLD) {
-//                    // Add time spent in ON_HOLD status
-//                    LocalTime currentOnHoldTime = miniJobCard.getSpentOnOnHold();
-//                    int totalMinutesOnHold = currentOnHoldTime.getHour() * 60 + currentOnHoldTime.getMinute() + (int) minutesSpentInPreviousStatus;
-//
-//                    // Convert back to LocalTime (handle overflow if needed)
-//                    int hoursOnHold = totalMinutesOnHold / 60;
-//                    int minutesOnHold = totalMinutesOnHold % 60;
-//
-//                    // Handle case where total time exceeds 24 hours
-//                    if (hoursOnHold >= 24) {
-//                        hoursOnHold = hoursOnHold % 24; // Keep within 24-hour format for LocalTime
-//                    }
-//
-//                    miniJobCard.setSpentOnOnHold(LocalTime.of(hoursOnHold, minutesOnHold, 0));
-//                    log.info("Added {} minutes to ON_HOLD time. Total ON_HOLD time: {}:{}",
-//                            minutesSpentInPreviousStatus, hoursOnHold, minutesOnHold);
-//
-//                } else if (oldStatus == JobStatus.IN_PROGRESS) {
-//                    // Add time spent in IN_PROGRESS status
-//                    LocalTime currentInProgressTime = miniJobCard.getSpentOnInProgress();
-//                    int totalMinutesInProgress = currentInProgressTime.getHour() * 60 + currentInProgressTime.getMinute() + (int) minutesSpentInPreviousStatus;
-//
-//                    // Convert back to LocalTime (handle overflow if needed)
-//                    int hoursInProgress = totalMinutesInProgress / 60;
-//                    int minutesInProgress = totalMinutesInProgress % 60;
-//
-//                    // Handle case where total time exceeds 24 hours
-//                    if (hoursInProgress >= 24) {
-//                        hoursInProgress = hoursInProgress % 24; // Keep within 24-hour format for LocalTime
-//                    }
-//
-//                    miniJobCard.setSpentOnInProgress(LocalTime.of(hoursInProgress, minutesInProgress, 0));
-//                    log.info("Added {} minutes to IN_PROGRESS time. Total IN_PROGRESS time: {}:{}",
-//                            minutesSpentInPreviousStatus, hoursInProgress, minutesInProgress);
-//
-//                } else if (oldStatus == JobStatus.ASSIGNED) {
-//                    // Add time spent in ASSIGNED status
-//                    LocalTime currentAssignedTime = miniJobCard.getSpentOnCompleted();
-//                    int totalMinutesAssigned = currentAssignedTime.getHour() * 60 + currentAssignedTime.getMinute() + (int) minutesSpentInPreviousStatus;
-//
-//                    // Convert back to LocalTime (handle overflow if needed)
-//                    int hoursAssigned = totalMinutesAssigned / 60;
-//                    int minutesAssigned = totalMinutesAssigned % 60;
-//
-//                    // Handle case where total time exceeds 24 hours
-//                    if (hoursAssigned >= 24) {
-//                        hoursAssigned = hoursAssigned % 24; // Keep within 24-hour format for LocalTime
-//                    }
-//
-//                    miniJobCard.setSpentOnCompleted(LocalTime.of(hoursAssigned, minutesAssigned, 0));
-//                    log.info("Added {} minutes to ASSIGNED time. Total ASSIGNED time: {}:{}",
-//                            minutesSpentInPreviousStatus, hoursAssigned, minutesAssigned);
-//                }
-//                // For PENDING and CANCELLED statuses, we don't track time as per requirements
-//            }
-
             if (lastUpdatedTime != null) {
                 long minutesSpentInPreviousStatus = ChronoUnit.MINUTES.between(lastUpdatedTime, currentTime);
 
+                // Only calculate time for specific statuses: IN_PROGRESS, ON_HOLD, ASSIGNED
                 if (oldStatus == JobStatus.ON_HOLD) {
-                    miniJobCard.setSpentOnOnHoldMinutes(
-                            miniJobCard.getSpentOnOnHoldMinutes() + minutesSpentInPreviousStatus
-                    );
-                    log.info("Added {} minutes to ON_HOLD. Total = {} minutes",
-                            minutesSpentInPreviousStatus, miniJobCard.getSpentOnOnHoldMinutes());
+                    // Add time spent in ON_HOLD status
+                    LocalTime currentOnHoldTime = miniJobCard.getSpentOnOnHold();
+                    int totalMinutesOnHold = currentOnHoldTime.getHour() * 60 + currentOnHoldTime.getMinute() + (int) minutesSpentInPreviousStatus;
+
+                    // Convert back to LocalTime (handle overflow if needed)
+                    int hoursOnHold = totalMinutesOnHold / 60;
+                    int minutesOnHold = totalMinutesOnHold % 60;
+
+                    // Handle case where total time exceeds 24 hours
+                    if (hoursOnHold >= 24) {
+                        hoursOnHold = hoursOnHold % 24; // Keep within 24-hour format for LocalTime
+                    }
+
+                    miniJobCard.setSpentOnOnHold(LocalTime.of(hoursOnHold, minutesOnHold, 0));
+                    log.info("Added {} minutes to ON_HOLD time. Total ON_HOLD time: {}:{}",
+                            minutesSpentInPreviousStatus, hoursOnHold, minutesOnHold);
 
                 } else if (oldStatus == JobStatus.IN_PROGRESS) {
-                    miniJobCard.setSpentOnInProgressMinutes(
-                            miniJobCard.getSpentOnInProgressMinutes() + minutesSpentInPreviousStatus
-                    );
-                    log.info("Added {} minutes to IN_PROGRESS. Total = {} minutes",
-                            minutesSpentInPreviousStatus, miniJobCard.getSpentOnInProgressMinutes());
+                    // Add time spent in IN_PROGRESS status
+                    LocalTime currentInProgressTime = miniJobCard.getSpentOnInProgress();
+                    int totalMinutesInProgress = currentInProgressTime.getHour() * 60 + currentInProgressTime.getMinute() + (int) minutesSpentInPreviousStatus;
+
+                    // Convert back to LocalTime (handle overflow if needed)
+                    int hoursInProgress = totalMinutesInProgress / 60;
+                    int minutesInProgress = totalMinutesInProgress % 60;
+
+                    // Handle case where total time exceeds 24 hours
+                    if (hoursInProgress >= 24) {
+                        hoursInProgress = hoursInProgress % 24; // Keep within 24-hour format for LocalTime
+                    }
+
+                    miniJobCard.setSpentOnInProgress(LocalTime.of(hoursInProgress, minutesInProgress, 0));
+                    log.info("Added {} minutes to IN_PROGRESS time. Total IN_PROGRESS time: {}:{}",
+                            minutesSpentInPreviousStatus, hoursInProgress, minutesInProgress);
 
                 } else if (oldStatus == JobStatus.ASSIGNED) {
-                    miniJobCard.setSpentOnAssignedMinutes(
-                            miniJobCard.getSpentOnAssignedMinutes() + minutesSpentInPreviousStatus
-                    );
-                    log.info("Added {} minutes to ASSIGNED. Total = {} minutes",
-                            minutesSpentInPreviousStatus, miniJobCard.getSpentOnOnHoldMinutes());
+                    // Add time spent in ASSIGNED status
+                    LocalTime currentAssignedTime = miniJobCard.getSpentOnCompleted();
+                    int totalMinutesAssigned = currentAssignedTime.getHour() * 60 + currentAssignedTime.getMinute() + (int) minutesSpentInPreviousStatus;
+
+                    // Convert back to LocalTime (handle overflow if needed)
+                    int hoursAssigned = totalMinutesAssigned / 60;
+                    int minutesAssigned = totalMinutesAssigned % 60;
+
+                    // Handle case where total time exceeds 24 hours
+                    if (hoursAssigned >= 24) {
+                        hoursAssigned = hoursAssigned % 24; // Keep within 24-hour format for LocalTime
+                    }
+
+                    miniJobCard.setSpentOnCompleted(LocalTime.of(hoursAssigned, minutesAssigned, 0));
+                    log.info("Added {} minutes to ASSIGNED time. Total ASSIGNED time: {}:{}",
+                            minutesSpentInPreviousStatus, hoursAssigned, minutesAssigned);
                 }
-                // PENDING and CANCELLED are not tracked
+                // For PENDING and CANCELLED statuses, we don't track time as per requirements
             }
 
             // Update fields with validation
