@@ -46,13 +46,13 @@ public class MiniJobCard {
     private LocalTime time;
 
 
-    @Column(name = "spent_on_on_hold", nullable = false)
+    @Column(name = "spent_on_on_hold", nullable = false, columnDefinition = "BIGINT")
     private long spentOnOnHoldMinutes = 0;
 
-    @Column(name = "spent_on_in_progress", nullable = false)
+    @Column(name = "spent_on_in_progress", nullable = false, columnDefinition = "BIGINT")
     private long spentOnInProgressMinutes = 0;
 
-    @Column(name = "spent_on_assigned", nullable = false)
+    @Column(name = "spent_on_assigned", nullable = false, columnDefinition = "BIGINT")
     private long spentOnAssignedMinutes = 0;
 
 
