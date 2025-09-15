@@ -1,5 +1,6 @@
 package com.example.met.repository;
 
+import com.example.met.entity.Employee;
 import com.example.met.entity.Log;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -46,5 +47,14 @@ public interface LogRepository extends JpaRepository<Log, UUID> {
      */
     List<Log> findByEmployeeEmailAndDateBetween(String email, LocalDate startDate, LocalDate endDate);
 
+    List<Log> findByEmployeeAndDateOrderByTimeAsc(Employee employee, LocalDate date);
+
+    /**
+     * Find all logs for an employee between dates, ordered by date and time
+     */
+    @Query("SELECT l FROM Log l WHERE l.employee = :employee AND l.date BETWEEN :startDate AND :endDate ORDER BY l.date ASC, l.time ASC")
+    List<Log> findByEmployeeAndDateRangeOrderByDateTime(@Param("employee") Employee employee,
+                                                        @Param("startDate") LocalDate startDate,
+                                                        @Param("endDate") LocalDate endDate);
 
 }

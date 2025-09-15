@@ -122,7 +122,7 @@ public class ReportService {
     private String getJobCardTitle(JobCard jobCard) {
         String generatorName = jobCard.getGenerator().getName();
         String generatorKW = jobCard.getGenerator().getCapacity();
-        return jobCard.getJobType().toString() + " - " + generatorName +"\n ( - "+generatorKW +"KW )";
+        return jobCard.getJobType().toString() + " - " + generatorName +"\n ( "+generatorKW +"KW )";
     }
 
     private TimeSpentSummary calculateTimeSpentSummary(List<JobCardTimeDetails> jobCardDetails) {
@@ -172,4 +172,6 @@ public class ReportService {
         int minutes = totalMinutes % 60;
         return String.format("%02d:%02d", hours, minutes);
     }
+
+
 }
