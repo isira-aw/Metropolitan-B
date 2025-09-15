@@ -45,7 +45,7 @@ public class OTtimeCalculator {
     @Column(nullable = false)
     private LocalTime eveningOTtime = LocalTime.of(0, 0, 0); // Default to 00:00:00
 
-    private String firstLocation; // Fixed typo from "fristLocation"
+    private String firstLocation;
 
     private String lastLocation;
 
