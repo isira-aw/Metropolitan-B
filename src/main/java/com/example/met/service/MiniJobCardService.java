@@ -35,7 +35,7 @@ public class MiniJobCardService {
     private final JobCardRepository jobCardRepository;
     private final EmployeeService employeeService;
     private final LogRepository logRepository;
-
+    private final OTTimeCalculatorService otTimeCalculatorService;
     // Sri Lanka timezone constant
     private static final ZoneId SRI_LANKA_ZONE = ZoneId.of("Asia/Colombo");
 
@@ -308,9 +308,18 @@ public class MiniJobCardService {
             LocalDateTime currentTime = getSafeCurrentDateTime();
             JobStatus newStatus = request.getStatus();
 
-            // Validate status change
+            // Handle same status gracefully instead of throwing exception
             if (newStatus != null && oldStatus == newStatus) {
-                throw new IllegalArgumentException("Cannot update to the same status. Current status is already: " + oldStatus);
+                log.info("Status update requested for mini job card {} with same status: {}. " +
+                                "This might be a duplicate request or UI refresh. Returning existing card.",
+                        id, oldStatus);
+
+                // Update the timestamp to show the request was processed
+                miniJobCard.setUpdatedAt(currentTime);
+
+                // Save and return the existing card
+                miniJobCard = miniJobCardRepository.save(miniJobCard);
+                return convertToResponse(miniJobCard);
             }
 
             // Calculate time spent in previous status and update accumulation fields
@@ -358,13 +367,14 @@ public class MiniJobCardService {
             // Save the updated mini job card
             miniJobCard = miniJobCardRepository.save(miniJobCard);
 
-            // Create log entry safely
-            try {
-                MiniJobCardResponse fullResponse = convertToResponse(miniJobCard);
-                createLogEntryDirectly(miniJobCard, oldStatus, fullResponse);
-            } catch (Exception e) {
-                log.error("Error creating log entry for mini job card update: {}", id, e);
-                // Don't fail the update because of logging error, just log it
+            // Create log entry safely - only for actual status changes
+            if (newStatus != null && oldStatus != newStatus) {
+                try {
+                    MiniJobCardResponse fullResponse = convertToResponse(miniJobCard);
+                    createLogEntryDirectly(miniJobCard, oldStatus, fullResponse);
+                } catch (Exception e) {
+                    log.error("Error creating log entry for mini job card update: {}", id, e);
+                }
             }
 
             log.info("Mini job card updated successfully with ID: {}. Status changed from {} to {}",
@@ -478,7 +488,25 @@ public class MiniJobCardService {
         try {
             Log logEntry = new Log();
             logEntry.setEmployee(miniJobCard.getEmployee());
-            logEntry.setAction("UPDATE_MINI_JOB_CARD");
+            logEntry.setAction("UPDATE_JOB_CARD");
+
+            // Handle OT calculation safely with detailed error handling
+            try {
+                if (otTimeCalculatorService != null) {
+                    otTimeCalculatorService.handleFirstLog(miniJobCard);
+                    log.debug("Successfully processed OT calculation for mini job card: {}", miniJobCard.getMiniJobCardId());
+                } else {
+                    log.warn("OT Time Calculator Service is not available");
+                }
+            } catch (DataIntegrityViolationException e) {
+                log.error("Database constraint violation in OT calculation for mini job card: {}. Error: {}",
+                        miniJobCard.getMiniJobCardId(), e.getMessage());
+                // Continue with log creation even if OT calculation fails
+            } catch (Exception e) {
+                log.error("Failed to process OT calculation for mini job card: {}. Error: {}",
+                        miniJobCard.getMiniJobCardId(), e.getMessage(), e);
+                // Continue with log creation even if OT calculation fails
+            }
 
             // Safe date and time setting
             try {
@@ -488,13 +516,18 @@ public class MiniJobCardService {
                 logEntry.setDate(LocalDate.now());
                 logEntry.setTime(LocalTime.now().withNano(0)); // Remove nanoseconds
             }
+
             logEntry.setGeneratorName(fullResponse.getGeneratorName());
             logEntry.setStatus(oldStatus.name() + " to " + miniJobCard.getStatus().name());
             logEntry.setLocation(miniJobCard.getLocation());
 
+            // Save the log entry
             logRepository.save(logEntry);
+            log.info("Successfully created log entry for mini job card: {}", miniJobCard.getMiniJobCardId());
+
         } catch (Exception e) {
-            log.error("Failed to create log entry for mini job card update", e);
+            log.error("Failed to create log entry for mini job card update: {}. Error: {}",
+                    miniJobCard.getMiniJobCardId(), e.getMessage(), e);
             // Don't propagate this error as it's not critical for the main operation
         }
     }

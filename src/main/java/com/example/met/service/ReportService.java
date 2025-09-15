@@ -172,4 +172,6 @@ public class ReportService {
         int minutes = totalMinutes % 60;
         return String.format("%02d:%02d", hours, minutes);
     }
+
+
 }
