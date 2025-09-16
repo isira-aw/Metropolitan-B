@@ -514,7 +514,7 @@ public class MiniJobCardService {
                 logEntry.setTime(getSafeCurrentTime());
             } catch (DateTimeException e) {
                 logEntry.setDate(LocalDate.now());
-                logEntry.setTime(LocalTime.now().withNano(0)); // Remove nanoseconds
+                logEntry.setTime(LocalTime.now().withNano(0));
             }
 
             logEntry.setGeneratorName(fullResponse.getGeneratorName());

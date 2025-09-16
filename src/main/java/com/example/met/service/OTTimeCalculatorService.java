@@ -3,19 +3,18 @@ package com.example.met.service;
 import com.example.met.dto.request.OTTimeReportRequest;
 import com.example.met.dto.response.OTTimeReportResponse;
 import com.example.met.entity.Employee;
+import com.example.met.entity.Log;
 import com.example.met.entity.MiniJobCard;
 import com.example.met.entity.OTtimeCalculator;
+import com.example.met.repository.EmployeeRepository;
+import com.example.met.repository.LogRepository;
 import com.example.met.repository.OTTimeCalculatorRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Duration;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.ZoneId;
+import java.time.*;
 import java.util.List;
 import java.util.Optional;
 
@@ -27,6 +26,8 @@ public class OTTimeCalculatorService {
     private final OTTimeCalculatorRepository otTimeCalculatorRepository;
     private final EmployeeService employeeService; // Add this dependency
     private static final ZoneId SRI_LANKA_ZONE = ZoneId.of("Asia/Colombo");
+    private final EmployeeRepository employeeRepository;
+    private final LogRepository logRepository;
 
     @Transactional
     public void handleFirstLog(MiniJobCard miniJobCard) {
@@ -179,6 +180,39 @@ public class OTTimeCalculatorService {
         try {
             log.info("Handling end session for employee: {} on date: {} at time: {}", employeeEmail, date, endTime);
 
+
+            try {
+
+                Employee employee = employeeRepository.findByEmail(employeeEmail)
+                        .orElseThrow(() -> new IllegalArgumentException("Employee not found with email: " + employeeEmail));
+
+
+                Log logEntry = new Log();
+            logEntry.setEmployee(employee);
+            logEntry.setAction("END_JOB_CARD");
+
+            try {
+                logEntry.setDate(LocalDate.now(SRI_LANKA_ZONE));
+                logEntry.setTime(getSafeCurrentTime());
+            } catch (DateTimeException e) {
+                logEntry.setDate(LocalDate.now());
+                logEntry.setTime(LocalTime.now().withNano(0));
+            }
+
+            logEntry.setGeneratorName(" ");
+            logEntry.setStatus("END_DATE");
+            logEntry.setLocation(endLocation);
+
+            // Save the log entry
+            logRepository.save(logEntry);
+            log.info("Successfully created log entry for end the day by: {}", employeeEmail);
+
+        } catch (Exception e) {
+            log.error("Failed to create log entry for end: {}. Error: {}",
+                    employeeEmail , e.getMessage(), e);
+            // Don't propagate this error as it's not critical for the main operation
+        }
+
             // Find employee
             Employee employee = employeeService.findByEmail(employeeEmail);
 
@@ -210,6 +244,15 @@ public class OTTimeCalculatorService {
         } catch (Exception e) {
             log.error("Error handling end session for employee: {} on date: {}", employeeEmail, date, e);
             throw new RuntimeException("Failed to end session", e);
+        }
+    }
+
+    private LocalTime getSafeCurrentTime() {
+        try {
+            return LocalTime.now(SRI_LANKA_ZONE).withNano(0); // Remove nanoseconds to prevent precision issues
+        } catch (DateTimeException e) {
+            log.warn("Error getting current time with timezone, using system default: {}", e.getMessage());
+            return LocalTime.now().withNano(0); // System default without nanoseconds
         }
     }
 
