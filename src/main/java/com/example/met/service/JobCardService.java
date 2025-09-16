@@ -254,7 +254,7 @@ public class JobCardService {
     public List<JobCardResponse> getAllJobCards() {
         try {
             log.info("Fetching latest 70 job cards with pagination");
-            Pageable pageable = PageRequest.of(0, 40);
+            Pageable pageable = PageRequest.of(0, 50);
             return jobCardRepository.findTop100ByOrderByUpdatedAtDesc(pageable)
                     .stream()
                     .map(this::convertToResponse)
