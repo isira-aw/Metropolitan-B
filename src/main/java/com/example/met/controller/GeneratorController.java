@@ -133,6 +133,24 @@ public class GeneratorController {
         }
     }
 
+    @GetMapping("/count")
+    public ResponseEntity<ApiResponse<Long>> searchGenerators() {
+        try {
+            long numberOfGen = generatorService.getAllGeneratorsLength();
+
+            ApiResponse<Long> response = ApiResponse.success(
+                    "Generators count retrieved successfully", numberOfGen);
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Error counting generators", e);
+            ApiResponse<Long> response = ApiResponse.error(
+                    "Failed to count generators", null);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
+
+
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<GeneratorResponse>> updateGenerator(

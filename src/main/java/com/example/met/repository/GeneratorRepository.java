@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.UUID;
+import org.springframework.data.domain.Pageable;
 
 @Repository
 public interface GeneratorRepository extends JpaRepository<Generator, UUID> {
@@ -17,6 +18,11 @@ public interface GeneratorRepository extends JpaRepository<Generator, UUID> {
 
     List<Generator> findByCapacityContaining(String capacity);
 
-    @Query("SELECT g FROM Generator g ORDER BY g.createdAt DESC")
-    List<Generator> findAllOrderByCreatedAtDesc();
+    List<Generator> findAllByOrderByCreatedAtDesc(Pageable pageable);
+
+    @Query("SELECT COUNT(g) FROM Generator g")
+    long getGeneratorCount();
+
+    // Or using JPA method naming (works with all databases):
+    List<Generator> findByNameContainingIgnoreCaseOrderByCreatedAtDesc(String name);
 }
