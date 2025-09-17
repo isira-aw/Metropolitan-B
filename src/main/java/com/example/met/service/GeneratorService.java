@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -105,20 +106,25 @@ public class GeneratorService {
 
     public List<GeneratorResponse> getAllGenerators() {
         try {
-            log.info("Fetching all generators");
-            return generatorRepository.findAllOrderByCreatedAtDesc()
+            log.info("Fetching latest 50 generators");
+            List<GeneratorResponse> latest50 = generatorRepository
+                    .findAllByOrderByCreatedAtDesc(PageRequest.of(0, 50))
                     .stream()
                     .map(this::convertToResponse)
                     .collect(Collectors.toList());
+
+            return latest50; // <--- Return the list
+
         } catch (DataAccessException e) {
-            log.error("Database error while fetching all generators", e);
+            log.error("Database error while fetching generators", e);
             throw new RuntimeException("Database error occurred while retrieving generators", e);
         } catch (Exception e) {
-            log.error("Error fetching all generators", e);
+            log.error("Error fetching generators", e);
             throw new RuntimeException("Failed to retrieve generators", e);
         }
     }
 
+    // In your GeneratorService.java - update the searchGeneratorsByName method
     public List<GeneratorResponse> searchGeneratorsByName(String name) {
         try {
             log.info("Searching generators by name: {}", name);
@@ -135,7 +141,8 @@ public class GeneratorService {
                 throw new IllegalArgumentException("Search name cannot exceed 100 characters");
             }
 
-            return generatorRepository.findByNameContaining(name.trim())
+            // Use the case-insensitive search method
+            return generatorRepository.findByNameContainingIgnoreCaseOrderByCreatedAtDesc(name.trim())
                     .stream()
                     .map(this::convertToResponse)
                     .collect(Collectors.toList());
@@ -147,6 +154,16 @@ public class GeneratorService {
         } catch (Exception e) {
             log.error("Error searching generators by name: {}", name, e);
             throw new RuntimeException("Failed to search generators", e);
+        }
+    }
+
+    public long getAllGeneratorsLength() {
+        try {
+            log.info("Count all generators");
+            return generatorRepository.getGeneratorCount();
+        } catch (Exception e) {
+            log.error("Error fetching all generators", e);
+            throw new RuntimeException("Failed to retrieve generators", e);
         }
     }
 
