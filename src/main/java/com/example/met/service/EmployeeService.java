@@ -1,6 +1,7 @@
 package com.example.met.service;
 
 import com.example.met.dto.request.RegisterRequest;
+import com.example.met.dto.request.RegisterRequestAdmin;
 import com.example.met.dto.response.EmployeeResponse;
 import com.example.met.entity.Employee;
 import com.example.met.exception.DuplicateResourceException;
@@ -102,6 +103,20 @@ public class EmployeeService implements UserDetailsService {
 
         employee = employeeRepository.save(employee);
         log.info("Employee updated successfully with email: {}", employee.getEmail());
+        return convertToResponse(employee);
+    }
+
+    @Transactional
+    public EmployeeResponse updateEmployeeByAdmin(String email, RegisterRequestAdmin request) {
+        log.info("Updating employee with email: {}", email);
+
+        Employee employee = findByEmail(email);
+        employee.setName(request.getName());
+        employee.setContactNumber(request.getContactNumber());
+        employee.setRole(request.getRole());
+
+        employee = employeeRepository.save(employee);
+        log.info("Employee updated by Admin : {}", employee.getEmail());
         return convertToResponse(employee);
     }
 

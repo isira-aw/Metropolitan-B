@@ -99,13 +99,13 @@ public class OTTimeCalculatorService {
                 return;
             }
 
-            // Calculate morning OT (before 8:00 AM)
-            LocalTime morningStart = LocalTime.of(8, 0); // 8:00 AM standard start
+            // Calculate morning OT (before 8:30 AM)
+            LocalTime morningStart = LocalTime.of(8, 30);
             LocalTime morningOT = calculateMorningOT(entry.getFirsttime(), morningStart);
             entry.setMorningOTtime(morningOT);
 
             // Calculate evening OT (after 5:00 PM)
-            LocalTime eveningEnd = LocalTime.of(17, 0); // 5:00 PM standard end
+            LocalTime eveningEnd = LocalTime.of(17, 0);
             LocalTime eveningOT = calculateEveningOT(entry.getLasttime(), eveningEnd);
             entry.setEveningOTtime(eveningOT);
 
