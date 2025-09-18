@@ -1,6 +1,7 @@
 package com.example.met.controller;
 
 import com.example.met.dto.request.RegisterRequest;
+import com.example.met.dto.request.RegisterRequestAdmin;
 import com.example.met.dto.response.ApiResponse;
 import com.example.met.dto.response.EmployeeResponse;
 import com.example.met.service.EmployeeService;
@@ -86,33 +87,82 @@ public class EmployeeController {
         }
     }
 
+//    @PutMapping("/{email}")
+//    @PreAuthorize("hasAnyRole('ADMIN', 'EMPLOYEE')")
+//    public ResponseEntity<ApiResponse<EmployeeResponse>> updateEmployee(
+//            @PathVariable String email,
+//            @Valid @RequestBody RegisterRequest request) {
+//        try {
+//            log.info("Request to update employee: {}", email);
+//
+//            // Validate email parameter
+//            if (email == null || email.trim().isEmpty()) {
+//                ApiResponse<EmployeeResponse> response = ApiResponse.error("Employee email cannot be empty", null);
+//                return ResponseEntity.badRequest().body(response);
+//            }
+//
+//            // Validate email format
+//            if (!EMAIL_PATTERN.matcher(email.trim()).matches()) {
+//                ApiResponse<EmployeeResponse> response = ApiResponse.error("Invalid email format", null);
+//                return ResponseEntity.badRequest().body(response);
+//            }
+//
+//            // Additional validation for email consistency
+//            if (request.getEmail() != null && !request.getEmail().equals(email)) {
+//                ApiResponse<EmployeeResponse> response = ApiResponse.error("Email in request body must match path parameter", null);
+//                return ResponseEntity.badRequest().body(response);
+//            }
+//
+//            EmployeeResponse updatedEmployee = employeeService.updateEmployee(email, request);
+//            ApiResponse<EmployeeResponse> response = ApiResponse.success(
+//                    "Employee updated successfully", updatedEmployee);
+//
+//            return ResponseEntity.ok(response);
+//        } catch (IllegalArgumentException e) {
+//            log.error("Employee not found for update with email: {} or invalid request data: {}", email, e.getMessage(), e);
+//
+//            if (e.getMessage().toLowerCase().contains("not found") || e.getMessage().toLowerCase().contains("does not exist")) {
+//                ApiResponse<EmployeeResponse> response = ApiResponse.error("Employee not found with the provided email", null);
+//                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+//            } else {
+//                ApiResponse<EmployeeResponse> response = ApiResponse.error("Invalid request data: " + e.getMessage(), null);
+//                return ResponseEntity.badRequest().body(response);
+//            }
+//        } catch (DataIntegrityViolationException e) {
+//            log.error("Data integrity violation while updating employee: {}", email, e);
+//            ApiResponse<EmployeeResponse> response = ApiResponse.error("Email or employee identifier already exists", null);
+//            return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+//        } catch (SecurityException e) {
+//            log.error("Security error while updating employee: {}", email, e);
+//            ApiResponse<EmployeeResponse> response = ApiResponse.error("Access denied. Insufficient privileges to update employee", null);
+//            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+//        } catch (Exception e) {
+//            log.error("Error updating employee: {}", email, e);
+//            ApiResponse<EmployeeResponse> response = ApiResponse.error(
+//                    "Failed to update employee", null);
+//            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+//        }
+//    }
+
     @PutMapping("/{email}")
     @PreAuthorize("hasAnyRole('ADMIN', 'EMPLOYEE')")
-    public ResponseEntity<ApiResponse<EmployeeResponse>> updateEmployee(
+    public ResponseEntity<ApiResponse<EmployeeResponse>> updateEmployeeForAdmin(
             @PathVariable String email,
-            @Valid @RequestBody RegisterRequest request) {
+            @Valid @RequestBody RegisterRequestAdmin request) {
         try {
             log.info("Request to update employee: {}", email);
 
-            // Validate email parameter
             if (email == null || email.trim().isEmpty()) {
                 ApiResponse<EmployeeResponse> response = ApiResponse.error("Employee email cannot be empty", null);
                 return ResponseEntity.badRequest().body(response);
             }
 
-            // Validate email format
             if (!EMAIL_PATTERN.matcher(email.trim()).matches()) {
                 ApiResponse<EmployeeResponse> response = ApiResponse.error("Invalid email format", null);
                 return ResponseEntity.badRequest().body(response);
             }
 
-            // Additional validation for email consistency
-            if (request.getEmail() != null && !request.getEmail().equals(email)) {
-                ApiResponse<EmployeeResponse> response = ApiResponse.error("Email in request body must match path parameter", null);
-                return ResponseEntity.badRequest().body(response);
-            }
-
-            EmployeeResponse updatedEmployee = employeeService.updateEmployee(email, request);
+            EmployeeResponse updatedEmployee = employeeService.updateEmployeeByAdmin(email, request);
             ApiResponse<EmployeeResponse> response = ApiResponse.success(
                     "Employee updated successfully", updatedEmployee);
 
@@ -120,7 +170,6 @@ public class EmployeeController {
         } catch (IllegalArgumentException e) {
             log.error("Employee not found for update with email: {} or invalid request data: {}", email, e.getMessage(), e);
 
-            // Check if it's a not found error or validation error
             if (e.getMessage().toLowerCase().contains("not found") || e.getMessage().toLowerCase().contains("does not exist")) {
                 ApiResponse<EmployeeResponse> response = ApiResponse.error("Employee not found with the provided email", null);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
