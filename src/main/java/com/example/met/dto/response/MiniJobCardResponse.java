@@ -26,6 +26,7 @@ public class MiniJobCardResponse {
     private LocalTime time;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private LocalTime updatedTime;
 
     // Enhanced job card details
     private JobCardType jobType;           // SERVICE or REPAIR
@@ -38,4 +39,5 @@ public class MiniJobCardResponse {
     private String generatorContactNumber;
     private String generatorEmail;
     private String generatorDescription;
+
 }
