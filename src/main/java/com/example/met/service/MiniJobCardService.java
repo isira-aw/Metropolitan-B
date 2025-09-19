@@ -363,6 +363,7 @@ public class MiniJobCardService {
                     miniJobCard.setTime(getSafeCurrentTime());
                 }
             }
+            miniJobCard.setUpdatedtime(getSafeCurrentTime());
 
             // Save the updated mini job card
             miniJobCard = miniJobCardRepository.save(miniJobCard);
@@ -549,6 +550,7 @@ public class MiniJobCardService {
             response.setDate(miniJobCard.getDate());
             response.setLocation(miniJobCard.getLocation());
             response.setTime(miniJobCard.getTime());
+            response.setUpdatedTime(miniJobCard.getUpdatedtime());
 
             // Safe timestamp handling
             try {

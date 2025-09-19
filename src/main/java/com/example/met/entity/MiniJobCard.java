@@ -54,6 +54,9 @@ public class MiniJobCard {
     @Column(name = "spent_on_IN_PROGRESS")
     private LocalTime spentOnInProgress = LocalTime.of(00, 00, 0);
 
+    @Column(name = "updated_time")
+    private LocalTime updatedtime = LocalTime.of(00, 00, 0);
+
     @Column(name ="lastTime_update_this-ticket")
     private LocalDateTime lastTimeUpdateThisTicket;
 
