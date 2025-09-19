@@ -108,16 +108,17 @@ public class LogService {
 
     public List<LogResponse> getAllLogs() {
         try {
-            log.info("Fetching all logs");
+            log.info("Fetching all logs (max 100 records)");
             return logRepository.findAll()
                     .stream()
+                    .limit(100) // limit to 100 records
                     .map(this::convertToResponse)
                     .collect(Collectors.toList());
         } catch (DataAccessException e) {
-            log.error("Database error while fetching all logs", e);
+            log.error("Database error while fetching logs", e);
             throw new RuntimeException("Database error occurred while retrieving logs", e);
         } catch (Exception e) {
-            log.error("Error fetching all logs", e);
+            log.error("Error fetching logs", e);
             throw new RuntimeException("Failed to retrieve logs", e);
         }
     }

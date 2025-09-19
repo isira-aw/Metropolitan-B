@@ -90,8 +90,7 @@ public class AuthController {
             if (!emailExists) {
                 // Removed detailed logging for security reasons
                 ApiResponse<String> response = ApiResponse.success(
-                        "If the email address is registered with us, you will receive a password reset link shortly.",
-                        "Password reset request processed"
+                        "If the email address is not registered with us, please double-check whether this email was used to log in before."
                 );
                 return ResponseEntity.ok(response);
             }
