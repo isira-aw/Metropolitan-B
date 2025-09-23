@@ -285,6 +285,10 @@ public class MiniJobCardService {
         }
     }
 
+    // Add this dependency to your MiniJobCardService
+
+
+    // Then modify your updateMiniJobCard method to include OT tracking
     @Transactional
     public MiniJobCardResponse updateMiniJobCard(UUID id, MiniJobCardUpdateRequest request) {
         try {
@@ -367,6 +371,26 @@ public class MiniJobCardService {
 
             // Save the updated mini job card
             miniJobCard = miniJobCardRepository.save(miniJobCard);
+
+            // **NEW: Update OT time tracking when status changes**
+            if (newStatus != null && oldStatus != newStatus) {
+                try {
+                    // Update OT time tracking for status change
+                    otTimeCalculatorService.handleStatusChange(
+                            miniJobCard.getEmployee().getEmail(),
+                            miniJobCard.getDate(),
+                            newStatus.toString(),
+                            miniJobCard.getTime()
+                    );
+
+                    log.info("Updated OT time tracking for employee: {} - Status changed from {} to {}",
+                            miniJobCard.getEmployee().getEmail(), oldStatus, newStatus);
+
+                } catch (Exception e) {
+                    log.error("Error updating OT time tracking for job card {}: {}", id, e.getMessage(), e);
+                    // Don't fail the main operation if OT tracking fails
+                }
+            }
 
             // Create log entry safely - only for actual status changes
             if (newStatus != null && oldStatus != newStatus) {

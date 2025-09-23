@@ -40,14 +40,29 @@ public class OTtimeCalculator {
     private LocalTime lasttime;
 
     @Column(nullable = false)
-    private LocalTime morningOTtime = LocalTime.of(0, 0, 0); // Default to 00:00:00
+    private LocalTime morningOTtime = LocalTime.of(0, 0, 0);
 
     @Column(nullable = false)
-    private LocalTime eveningOTtime = LocalTime.of(0, 0, 0); // Default to 00:00:00
+    private LocalTime eveningOTtime = LocalTime.of(0, 0, 0);
+
+    @Column(name = "spent_on_ON_HOLD")
+    private LocalTime spentOnOnHold = LocalTime.of(0, 0, 0);
+
+    @Column(name = "spent_on_ASSIGNED")
+    private LocalTime spentOnAssigned = LocalTime.of(0, 0, 0);
+
+    @Column(name = "spent_on_IN_PROGRESS")
+    private LocalTime spentOnInProgress = LocalTime.of(0, 0, 0);
+
+    private String laststatus;
+    private String currentstatus;
 
     private String firstLocation;
-
     private String lastLocation;
+
+    // Track when each status was last updated
+    @Column(name = "status_change_time")
+    private LocalDateTime statusChangeTime;
 
     @Column(name = "lastTime_update_ottime")
     private LocalDateTime lastTimeUpdateOTtime;
@@ -60,7 +75,6 @@ public class OTtimeCalculator {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    // Sri Lanka timezone constant
     private static final ZoneId SRI_LANKA_ZONE = ZoneId.of("Asia/Colombo");
 
     @PrePersist
@@ -69,6 +83,7 @@ public class OTtimeCalculator {
         this.createdAt = now;
         this.updatedAt = now;
         this.lastTimeUpdateOTtime = now;
+        this.statusChangeTime = now;
 
         // Ensure required fields have defaults to prevent null constraint violations
         if (this.morningOTtime == null) {
@@ -76,6 +91,15 @@ public class OTtimeCalculator {
         }
         if (this.eveningOTtime == null) {
             this.eveningOTtime = LocalTime.of(0, 0, 0);
+        }
+        if (this.spentOnOnHold == null) {
+            this.spentOnOnHold = LocalTime.of(0, 0, 0);
+        }
+        if (this.spentOnAssigned == null) {
+            this.spentOnAssigned = LocalTime.of(0, 0, 0);
+        }
+        if (this.spentOnInProgress == null) {
+            this.spentOnInProgress = LocalTime.of(0, 0, 0);
         }
 
         // CRITICAL: Ensure lasttime is never null
