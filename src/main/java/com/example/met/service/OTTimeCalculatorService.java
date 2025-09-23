@@ -205,6 +205,12 @@ public class OTTimeCalculatorService {
             Optional<OTtimeCalculator> existingEntryOpt = otTimeCalculatorRepository
                     .findByEmployeeAndDate(employee, date);
 
+            if (existingEntryOpt.isPresent()
+                    && "END_JOB_CARD".equals(existingEntryOpt.get().getCurrentstatus())) {
+                throw new UnauthorizedException("Current status is END_JOB_CARD, so it cannot be updated again.");
+            }
+
+
             if (existingEntryOpt.isPresent()) {
                 OTtimeCalculator entry = existingEntryOpt.get();
 
