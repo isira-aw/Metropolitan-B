@@ -7,7 +7,6 @@ import com.example.met.entity.Log;
 import com.example.met.entity.MiniJobCard;
 import com.example.met.entity.OTtimeCalculator;
 import com.example.met.enums.JobStatus;
-import com.example.met.exception.UnauthorizedException;
 import com.example.met.repository.EmployeeRepository;
 import com.example.met.repository.LogRepository;
 import com.example.met.repository.OTTimeCalculatorRepository;
@@ -54,16 +53,18 @@ public class OTTimeCalculatorService {
                 String newStatus = miniJobCard.getStatus() != null ? miniJobCard.getStatus().toString() : "ASSIGNED";
                 updateStatusAndCalculateTime(entry, newStatus, currentDateTime);
 
-                // Update lasttime and lastlocation
+                // Update lasttime and location
                 updateLastTime(entry, currentTime, currentDateTime);
-                entry.setLastLocation(miniJobCard.getLocation());
+
+                // Add location to the list
+                addLocationToEntry(entry, miniJobCard.getLocation());
 
                 // Calculate and update OT times
                 calculateAndUpdateOT(entry);
 
                 otTimeCalculatorRepository.save(entry);
-                log.info("Updated OT entry for employee: {} - Last time: {}, Status: {}",
-                        employee.getEmail(), currentTime, newStatus);
+                log.info("Updated OT entry for employee: {} - Last time: {}, Status: {}, Location: {}",
+                        employee.getEmail(), currentTime, newStatus, miniJobCard.getLocation());
 
             } else {
                 // Create new entry - this is the first log of the day
@@ -82,16 +83,15 @@ public class OTTimeCalculatorService {
                 newEntry.setCurrentstatus(initialStatus);
                 newEntry.setStatusChangeTime(currentDateTime);
 
-                // Set locations
-                newEntry.setFirstLocation(miniJobCard.getLocation());
-                newEntry.setLastLocation(miniJobCard.getLocation());
+                // Add location to the list and set first/last locations
+                addLocationToEntry(newEntry, miniJobCard.getLocation());
 
                 // Initialize OT times and status times to zero
                 initializeOTTimes(newEntry);
 
                 otTimeCalculatorRepository.save(newEntry);
-                log.info("Created new OT entry for employee: {} - First time: {}, Status: {}",
-                        employee.getEmail(), currentTime, initialStatus);
+                log.info("Created new OT entry for employee: {} - First time: {}, Status: {}, Location: {}",
+                        employee.getEmail(), currentTime, initialStatus, miniJobCard.getLocation());
             }
 
         } catch (Exception e) {
@@ -205,12 +205,6 @@ public class OTTimeCalculatorService {
             Optional<OTtimeCalculator> existingEntryOpt = otTimeCalculatorRepository
                     .findByEmployeeAndDate(employee, date);
 
-            if (existingEntryOpt.isPresent()
-                    && "END_JOB_CARD".equals(existingEntryOpt.get().getCurrentstatus())) {
-                throw new UnauthorizedException("Current status is END_JOB_CARD, so it cannot be updated again.");
-            }
-
-
             if (existingEntryOpt.isPresent()) {
                 OTtimeCalculator entry = existingEntryOpt.get();
 
@@ -224,9 +218,9 @@ public class OTTimeCalculatorService {
                     updateStatusAndCalculateTime(entry, "END_JOB_CARD", currentDateTime);
                 }
 
-                // Update last time and location
+                // Update last time and add end location to the list
                 updateLastTime(entry, endTime, currentDateTime);
-                entry.setLastLocation(endLocation);
+                addLocationToEntry(entry, endLocation);
 
                 // Finalize the day calculations
                 finalizeDay(entry);
@@ -237,9 +231,10 @@ public class OTTimeCalculatorService {
                 // Save the updated entry
                 OTtimeCalculator savedEntry = otTimeCalculatorRepository.save(entry);
 
-                log.info("Session ended for employee: {}. Final OT - Morning: {}, Evening: {}, Status Times - OnHold: {}, Assigned: {}, InProgress: {}",
+                log.info("Session ended for employee: {}. Final OT - Morning: {}, Evening: {}, Status Times - OnHold: {}, Assigned: {}, InProgress: {}, All Locations: {}",
                         employeeEmail, savedEntry.getMorningOTtime(), savedEntry.getEveningOTtime(),
-                        savedEntry.getSpentOnOnHold(), savedEntry.getSpentOnAssigned(), savedEntry.getSpentOnInProgress());
+                        savedEntry.getSpentOnOnHold(), savedEntry.getSpentOnAssigned(), savedEntry.getSpentOnInProgress(),
+                        savedEntry.getLocationsAsString());
 
                 return savedEntry;
             } else {
@@ -395,6 +390,16 @@ public class OTTimeCalculatorService {
         entry.setSpentOnInProgress(LocalTime.of(0, 0, 0));
     }
 
+    private void addLocationToEntry(OTtimeCalculator entry, String location) {
+        if (location != null && !location.trim().isEmpty()) {
+            // Use the entity's helper method to add location
+            entry.addLocation(location);
+
+            log.debug("Added location '{}' to OT entry for employee: {} on date: {}",
+                    location, entry.getEmployee().getEmail(), entry.getDate());
+        }
+    }
+
     private void createEndSessionLog(String employeeEmail, String endLocation) {
         try {
             Employee employee = employeeRepository.findByEmail(employeeEmail)
@@ -463,6 +468,11 @@ public class OTTimeCalculatorService {
         record.setLastTime(formatTime(entry.getLasttime()));
         record.setFirstLocation(entry.getFirstLocation() != null ? entry.getFirstLocation() : "");
         record.setLastLocation(entry.getLastLocation() != null ? entry.getLastLocation() : "");
+
+        // Add all locations as a list or comma-separated string
+        record.setAllLocations(entry.getAllLocations());
+        record.setLocationsSummary(entry.getLocationsAsString());
+
         record.setMorningOT(formatTime(entry.getMorningOTtime()));
         record.setEveningOT(formatTime(entry.getEveningOTtime()));
 
