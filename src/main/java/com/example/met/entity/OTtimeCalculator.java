@@ -12,6 +12,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -60,6 +62,12 @@ public class OTtimeCalculator {
     private String firstLocation;
     private String lastLocation;
 
+    // Store all locations visited during the day as JSON array
+    @ElementCollection
+    @CollectionTable(name = "ot_locations", joinColumns = @JoinColumn(name = "ot_time_id"))
+    @Column(name = "location_list")
+    private List<String> allLocations = new ArrayList<>();
+
     // Track when each status was last updated
     @Column(name = "status_change_time")
     private LocalDateTime statusChangeTime;
@@ -84,6 +92,11 @@ public class OTtimeCalculator {
         this.updatedAt = now;
         this.lastTimeUpdateOTtime = now;
         this.statusChangeTime = now;
+
+        // Initialize collections
+        if (this.allLocations == null) {
+            this.allLocations = new ArrayList<>();
+        }
 
         // Ensure required fields have defaults to prevent null constraint violations
         if (this.morningOTtime == null) {
@@ -145,5 +158,41 @@ public class OTtimeCalculator {
             this.lasttime = time; // Prevent null constraint violation
             this.lastTimeUpdateOTtime = LocalDateTime.now(SRI_LANKA_ZONE);
         }
+    }
+
+    // Helper method to add location to the list (avoiding duplicates if desired)
+    public void addLocation(String location) {
+        if (location != null && !location.trim().isEmpty()) {
+            if (this.allLocations == null) {
+                this.allLocations = new ArrayList<>();
+            }
+
+            // Add location (you can uncomment the next line if you want to avoid consecutive duplicates)
+            // if (this.allLocations.isEmpty() || !this.allLocations.get(this.allLocations.size() - 1).equals(location.trim())) {
+            this.allLocations.add(location.trim());
+            // }
+
+            // Update first and last location for backward compatibility
+            if (this.firstLocation == null) {
+                this.firstLocation = location.trim();
+            }
+            this.lastLocation = location.trim();
+        }
+    }
+
+    // Helper method to get all unique locations
+    public List<String> getUniqueLocations() {
+        if (this.allLocations == null) {
+            return new ArrayList<>();
+        }
+        return this.allLocations.stream().distinct().toList();
+    }
+
+    // Helper method to get locations as comma-separated string
+    public String getLocationsAsString() {
+        if (this.allLocations == null || this.allLocations.isEmpty()) {
+            return "";
+        }
+        return String.join(", ", this.allLocations);
     }
 }
