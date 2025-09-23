@@ -59,4 +59,6 @@ public interface MiniJobCardRepository extends JpaRepository<MiniJobCard, UUID> 
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate
     );
+
+    List<MiniJobCard> findByEmployeeEmailAndDateOrderByLastTimeUpdateThisTicketAsc(String email, LocalDate date);
 }
