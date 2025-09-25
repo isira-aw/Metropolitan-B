@@ -2,10 +2,12 @@ package com.example.met.controller;
 
 import com.example.met.dto.request.RepairJobCardRequest;
 import com.example.met.dto.request.ServiceJobCardRequest;
+import com.example.met.dto.request.UpdateJobCardRequest;
 import com.example.met.dto.request.VisitJobCardRequest;
 import com.example.met.dto.response.ApiResponse;
 import com.example.met.dto.response.JobCardResponse;
 import com.example.met.enums.JobCardType;
+import com.example.met.exception.ResourceNotFoundException;
 import com.example.met.service.JobCardService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -258,6 +260,37 @@ public class JobCardController {
             log.error("Error retrieving job cards for generator: {}", generatorId, e);
             ApiResponse<List<JobCardResponse>> response = ApiResponse.error(
                     "Failed to retrieve job cards for generator", null);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'EMPLOYEE')")
+    public ResponseEntity<ApiResponse<JobCardResponse>> updateJobCard(
+            @PathVariable UUID id,
+            @Valid @RequestBody UpdateJobCardRequest request) {
+        try {
+            log.info("Request to update job card with ID: {}", id);
+
+            JobCardResponse jobCard = jobCardService.updateJobCard(id, request);
+            ApiResponse<JobCardResponse> response = ApiResponse.success("Job card updated successfully", jobCard);
+
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            log.error("Invalid request data for updating job card with ID: {}: {}", id, e.getMessage(), e);
+            ApiResponse<JobCardResponse> response = ApiResponse.error("Invalid request data: " + e.getMessage(), null);
+            return ResponseEntity.badRequest().body(response);
+        } catch (SecurityException e) {
+            log.error("Security error while updating job card with ID: {}", id, e);
+            ApiResponse<JobCardResponse> response = ApiResponse.error("Access denied. Insufficient privileges", null);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+        } catch (ResourceNotFoundException e) {
+            log.error("Job card not found for update with ID: {}", id, e);
+            ApiResponse<JobCardResponse> response = ApiResponse.error("Job card not found with the provided ID", null);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+        } catch (Exception e) {
+            log.error("Error updating job card with ID: {}", id, e);
+            ApiResponse<JobCardResponse> response = ApiResponse.error("Failed to update job card", null);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
