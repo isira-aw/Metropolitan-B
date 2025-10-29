@@ -2,6 +2,7 @@ package com.example.met.service;
 
 import com.example.met.dto.request.RepairJobCardRequest;
 import com.example.met.dto.request.ServiceJobCardRequest;
+import com.example.met.dto.request.UpdateJobCardRequest;
 import com.example.met.dto.request.VisitJobCardRequest;
 import com.example.met.dto.response.JobCardResponse;
 import com.example.met.entity.Employee;
@@ -369,6 +370,141 @@ public class JobCardService {
             log.error("Error fetching job cards for generator: {}", generatorId, e);
             throw new RuntimeException("Failed to retrieve job cards for generator", e);
         }
+    }
+    // Add this method to your JobCardService class
+
+    @Transactional
+    public JobCardResponse updateJobCard(UUID id, UpdateJobCardRequest request) {
+        try {
+            log.info("Updating job card with ID: {}", id);
+
+            // Validate request
+            validateUpdateJobCardRequest(request);
+
+            // Find existing job card
+            JobCard existingJobCard = findById(id);
+
+            // Validate generator exists if it's being changed
+            Generator generator;
+            if (!existingJobCard.getGenerator().getGeneratorId().equals(request.getGeneratorId())) {
+                try {
+                    generator = generatorService.findById(request.getGeneratorId());
+                } catch (Exception e) {
+                    log.error("Error finding generator with ID: {}", request.getGeneratorId(), e);
+                    throw new IllegalArgumentException("Generator not found with ID: " + request.getGeneratorId(), e);
+                }
+            } else {
+                generator = existingJobCard.getGenerator();
+            }
+
+            // Update job card fields
+            existingJobCard.setGenerator(generator);
+            existingJobCard.setJobType(request.getJobType());
+            existingJobCard.setDate(request.getDate());
+            existingJobCard.setEstimatedTime(request.getEstimatedTime());
+            existingJobCard.setEmployeeEmails(request.getEmployeeEmails());
+
+            // Save updated job card
+            JobCard updatedJobCard = jobCardRepository.save(existingJobCard);
+
+            // Update mini job cards if employee assignments changed
+            updateMiniJobCards(updatedJobCard, request.getEmployeeEmails());
+
+            log.info("Job card updated successfully with ID: {}", id);
+            return convertToResponse(updatedJobCard);
+
+        } catch (IllegalArgumentException | ResourceNotFoundException e) {
+            // Re-throw validation and not found errors
+            throw e;
+        } catch (DataIntegrityViolationException e) {
+            log.error("Data integrity violation while updating job card with ID: {}", id, e);
+            throw new IllegalArgumentException("Data integrity violation: duplicate or invalid references", e);
+        } catch (DataAccessException e) {
+            log.error("Database error while updating job card with ID: {}", id, e);
+            throw new RuntimeException("Database error occurred while updating job card", e);
+        } catch (Exception e) {
+            log.error("Unexpected error while updating job card with ID: {}", id, e);
+            throw new RuntimeException("Failed to update job card: " + e.getMessage(), e);
+        }
+    }
+
+    private void updateMiniJobCards(JobCard jobCard, List<String> newEmployeeEmails) {
+        try {
+            // Get existing mini job cards
+            List<MiniJobCard> existingMiniJobCards = miniJobCardRepository.findByJobCardJobCardId(jobCard.getJobCardId());
+
+            // Get current employee emails from existing mini job cards
+            List<String> currentEmployeeEmails = existingMiniJobCards.stream()
+                    .map(miniJobCard -> miniJobCard.getEmployee().getEmail())
+                    .collect(Collectors.toList());
+
+            // Find employees to remove (in current but not in new)
+            List<String> emailsToRemove = currentEmployeeEmails.stream()
+                    .filter(email -> !newEmployeeEmails.contains(email))
+                    .collect(Collectors.toList());
+
+            // Find employees to add (in new but not in current)
+            List<String> emailsToAdd = newEmployeeEmails.stream()
+                    .filter(email -> !currentEmployeeEmails.contains(email))
+                    .collect(Collectors.toList());
+
+            // Remove mini job cards for employees no longer assigned
+            if (!emailsToRemove.isEmpty()) {
+                List<MiniJobCard> miniJobCardsToRemove = existingMiniJobCards.stream()
+                        .filter(miniJobCard -> emailsToRemove.contains(miniJobCard.getEmployee().getEmail()))
+                        .collect(Collectors.toList());
+
+                miniJobCardRepository.deleteAll(miniJobCardsToRemove);
+                log.info("Removed {} mini job cards for job card: {}", miniJobCardsToRemove.size(), jobCard.getJobCardId());
+            }
+
+            // Create mini job cards for newly assigned employees
+            if (!emailsToAdd.isEmpty()) {
+                createMiniJobCardsDirectly(jobCard, emailsToAdd);
+                log.info("Added mini job cards for {} new employees for job card: {}", emailsToAdd.size(), jobCard.getJobCardId());
+            }
+
+            // Update existing mini job cards with new date if changed
+            List<MiniJobCard> remainingMiniJobCards = existingMiniJobCards.stream()
+                    .filter(miniJobCard -> !emailsToRemove.contains(miniJobCard.getEmployee().getEmail()))
+                    .collect(Collectors.toList());
+
+            for (MiniJobCard miniJobCard : remainingMiniJobCards) {
+                if (!miniJobCard.getDate().equals(jobCard.getDate())) {
+                    miniJobCard.setDate(jobCard.getDate());
+                    miniJobCardRepository.save(miniJobCard);
+                }
+            }
+
+        } catch (DataAccessException e) {
+            log.error("Database error while updating mini job cards for job card: {}", jobCard.getJobCardId(), e);
+            throw new RuntimeException("Error updating mini job cards", e);
+        } catch (Exception e) {
+            log.error("Unexpected error while updating mini job cards for job card: {}", jobCard.getJobCardId(), e);
+            throw new RuntimeException("Failed to update mini job cards", e);
+        }
+    }
+
+    // Add this validation method
+    private void validateUpdateJobCardRequest(UpdateJobCardRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Update job card request cannot be null");
+        }
+        if (request.getGeneratorId() == null) {
+            throw new IllegalArgumentException("Generator ID cannot be null");
+        }
+        if (request.getJobType() == null) {
+            throw new IllegalArgumentException("Job type cannot be null");
+        }
+        if (request.getDate() == null) {
+            throw new IllegalArgumentException("Date cannot be null");
+        }
+        if (request.getEmployeeEmails() == null || request.getEmployeeEmails().isEmpty()) {
+            throw new IllegalArgumentException("At least one employee email is required");
+        }
+
+        // Validate employee emails using existing method
+        validateEmployeeEmails(request.getEmployeeEmails());
     }
 
     private JobCardResponse convertToResponse(JobCard jobCard) {
