@@ -12,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -226,6 +227,29 @@ public class MiniJobCardController {
             log.error("Error updating mini job card with ID: {}", id, e);
             ApiResponse<MiniJobCardResponse> response = ApiResponse.error(
                     "Failed to update mini job card", null);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
+
+    @GetMapping("/can-edit-status")
+    @PreAuthorize("hasRole('EMPLOYEE')")
+    public ResponseEntity<ApiResponse<Boolean>> canEditStatus(Authentication authentication) {
+        try {
+            String employeeEmail = authentication.getName(); // Gets logged-in user's email
+            log.info("Request to check if employee {} can edit status", employeeEmail);
+
+            boolean eligible = miniJobCardService.canEmployeeEditStatus(employeeEmail);
+
+            String message = eligible
+                    ? "You can edit status for today"
+                    : "You cannot edit status - either day has ended or no active session";
+
+            ApiResponse<Boolean> response = ApiResponse.success(message, eligible);
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("Error checking edit eligibility for authenticated employee", e);
+            ApiResponse<Boolean> response = ApiResponse.error("Failed to check edit eligibility", false);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
