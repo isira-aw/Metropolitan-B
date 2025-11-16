@@ -668,4 +668,32 @@ public class MiniJobCardService {
             throw new IllegalArgumentException("Location cannot exceed 255 characters");
         }
     }
+
+    public boolean canEmployeeEditStatus(String employeeEmail) {
+        try {
+            LocalDate today = LocalDate.now(ZoneId.of("Asia/Colombo"));
+
+            List<Log> todaysLogs = logRepository.findByEmployeeEmailAndDate(employeeEmail, today);
+
+            if (todaysLogs.isEmpty()) {
+                log.info("Employee {} has no logs for today - CAN edit (hasn't started day yet)", employeeEmail);
+                return true;
+            }
+
+            boolean hasEndedDay = todaysLogs.stream()
+                    .anyMatch(log -> "END_DATE".equals(log.getStatus()));
+
+            if (hasEndedDay) {
+                log.info("Employee {} has already ended their day (status: END_DATE) - cannot edit", employeeEmail);
+                return false;
+            }
+
+            log.info("Employee {} is eligible to edit status", employeeEmail);
+            return true;
+
+        } catch (Exception e) {
+            log.error("Error checking edit eligibility for employee: {}", employeeEmail, e);
+            return false;
+        }
+    }
 }
